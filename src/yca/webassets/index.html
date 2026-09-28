@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Yaounde Urban-Speech Analyzer</title>
+<link rel="icon" href="/assets/logo.png" type="image/png">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+
+<!-- ------------------------------------------------------------------ -->
+<!-- Splash: the crest glows for three seconds, then the app fades in.   -->
+<!-- ------------------------------------------------------------------ -->
+<div id="splash" class="splash">
+  <div class="splash-aurora"></div>
+  <div class="splash-inner">
+    <div class="crest-stage">
+      <span class="halo halo-1"></span>
+      <span class="halo halo-2"></span>
+      <span class="halo halo-3"></span>
+      <div class="crest-ring">
+        <img src="/assets/logo.png" alt="" class="crest">
+      </div>
+    </div>
+    <h1 class="splash-title">Yaound&eacute; Urban-Speech Analyzer</h1>
+    <p class="splash-sub">Lexical &amp; syntactic analysis of Camfranglais</p>
+  </div>
+  <p class="splash-foot">Compiler Construction &middot; Faculty of ICT</p>
+</div>
+
+<!-- ------------------------------------------------------------------ -->
+<!-- Application                                                         -->
+<!-- ------------------------------------------------------------------ -->
+<div id="app" class="app">
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <img src="/assets/logo.png" alt="" class="topbar-crest">
+      <div class="wordmark">
+        <strong>Yaound&eacute; Urban-Speech Analyzer</strong>
+        <span>Lexical and syntactic analysis of informal Yaound&eacute; speech</span>
+      </div>
+      <div class="topbar-right">
+        <span class="lamp" id="lamp" title="analyzer status"></span>
+        <span class="status" id="status">starting&hellip;</span>
+        <span class="pill" id="version">v&mdash;</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="sheet">
+
+    <section class="console">
+      <label class="field-label" for="entry">Transcription</label>
+      <div class="field" id="field">
+        <input id="entry" type="text" autocomplete="off" spellcheck="false"
+               placeholder="Chef, drop me for Carrefour Obili."
+               aria-label="Transcription to analyze">
+        <button id="clear" class="ghost-btn" title="Clear" aria-label="Clear">&times;</button>
+        <button id="run" class="go-btn">Analyze</button>
+      </div>
+
+      <div class="chips" id="examples"></div>
+
+      <div class="corpus-line">
+        <label for="corpus-pick">Or load a corpus statement</label>
+        <select id="corpus-pick"><option value="">&mdash;</option></select>
+      </div>
+
+      <div class="verdict idle" id="verdict">
+        <span class="verdict-mark" id="verdict-mark"></span>
+        <div class="verdict-body">
+          <p class="verdict-text" id="verdict-text">Type a statement and press Analyze.</p>
+          <p class="verdict-reason" id="verdict-reason"></p>
+        </div>
+        <div class="verdict-counts" id="verdict-counts"></div>
+      </div>
+    </section>
+
+    <nav class="tabs" id="tabs" role="tablist">
+      <button class="tab active" data-panel="p-tokens" role="tab">Tokens</button>
+      <button class="tab" data-panel="p-tree" role="tab">Parse tree</button>
+      <button class="tab" data-panel="p-trace" role="tab">Parse trace</button>
+      <button class="tab" data-panel="p-deriv" role="tab">Derivation</button>
+      <button class="tab" data-panel="p-sets" role="tab">FIRST / FOLLOW</button>
+      <button class="tab" data-panel="p-corpus" role="tab">Corpus</button>
+      <button class="tab" data-panel="p-stats" role="tab">Statistics</button>
+      <span class="tab-ink" id="tab-ink"></span>
+    </nav>
+
+    <section class="panel active" id="p-tokens">
+      <div class="panel-head">
+        <h2>Tokens</h2>
+        <p>Every lexeme, the grammar terminal it becomes, and the rule that matched it.</p>
+      </div>
+      <div class="scroller"><table class="grid" id="tokens-table"></table></div>
+    </section>
+
+    <section class="panel" id="p-tree">
+      <div class="panel-head">
+        <h2>Parse tree</h2>
+        <p>The concrete syntax tree the LL(1) driver built. Click a node to fold it.</p>
+      </div>
+      <div class="scroller tree-wrap"><div id="tree"></div></div>
+    </section>
+
+    <section class="panel" id="p-trace">
+      <div class="panel-head">
+        <h2>Parse trace</h2>
+        <p>Stack, remaining input and action at every step of the predictive parse.</p>
+      </div>
+      <div class="scroller"><table class="grid mono" id="trace-table"></table></div>
+    </section>
+
+    <section class="panel" id="p-deriv">
+      <div class="panel-head">
+        <h2>Leftmost derivation</h2>
+        <p>The same parse replayed as sentential forms.</p>
+      </div>
+      <div class="scroller"><ol class="deriv" id="deriv"></ol></div>
+    </section>
+
+    <section class="panel" id="p-sets">
+      <div class="panel-head">
+        <h2>FIRST and FOLLOW</h2>
+        <p>Computed over the grammar after left-recursion removal and left factoring.</p>
+      </div>
+      <div class="scroller"><table class="grid" id="sets-table"></table></div>
+    </section>
+
+    <section class="panel" id="p-corpus">
+      <div class="panel-head">
+        <h2>Corpus and negative tests</h2>
+        <p>Click any row to load it into the analyzer.</p>
+      </div>
+      <div class="scroller"><table class="grid" id="corpus-table"></table></div>
+    </section>
+
+    <section class="panel" id="p-stats">
+      <div class="panel-head">
+        <h2>Statistics</h2>
+        <p>Measured over the whole corpus by the same pipeline.</p>
+      </div>
+      <div class="stats" id="stats"></div>
+    </section>
+
+  </main>
+
+  <footer class="foot">
+    <div class="foot-inner">
+      <span id="foot-course"></span>
+      <span id="foot-group"></span>
+    </div>
+  </footer>
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>

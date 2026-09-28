@@ -1,0 +1,17 @@
+[Unit]
+Description=Refresh the DuckDNS record every five minutes
+Documentation=https://www.duckdns.org/spec.jsp
+
+[Timer]
+# Once shortly after boot, then every five minutes. DuckDNS asks that
+# clients not poll more often than this.
+OnBootSec=1min
+OnUnitActiveSec=5min
+
+# Spread the request a little so every DuckDNS client on earth does not
+# fire on the same second.
+RandomizedDelaySec=30
+Persistent=true
+
+[Install]
+WantedBy=timers.target

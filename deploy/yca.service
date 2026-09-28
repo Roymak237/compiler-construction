@@ -1,0 +1,66 @@
+[Unit]
+Description=Yaounde Urban-Speech Analyzer
+Documentation=https://github.com/
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=yca
+Group=yca
+WorkingDirectory=/opt/yca
+
+# The application is pure standard library, so there is nothing to activate
+# and no virtualenv to source. It binds to loopback only; nginx is the
+# public face and the sole thing that talks to it.
+Environment=PYTHONPATH=/opt/yca/src
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 -m yca web \
+    --host 127.0.0.1 \
+    --port 8042 \
+    --exact-port \
+    --no-browser
+
+Restart=on-failure
+RestartSec=3
+
+# Stop cleanly: the server traps SIGTERM and finishes in-flight requests.
+KillSignal=SIGTERM
+TimeoutStopSec=15
+
+# journald captures stdout, so `journalctl -u yca` is the log.
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=yca
+
+# --- Hardening ------------------------------------------------------------
+# The service only ever reads its own code and writes nothing, so almost
+# everything can be locked away.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RemoveIPC=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+# Modest ceilings: this is a single analyzer, not a cluster.
+LimitNOFILE=4096
+MemoryMax=512M
+TasksMax=128
+
+[Install]
+WantedBy=multi-user.target

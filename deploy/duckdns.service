@@ -1,0 +1,23 @@
+[Unit]
+Description=Refresh the DuckDNS record for this host
+Documentation=https://www.duckdns.org/spec.jsp
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/yca/duckdns-update.sh
+
+# The token lives in a root-only file, so this one runs as root while
+# giving up everything else it does not need.
+User=root
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+RestrictAddressFamilies=AF_INET AF_INET6
+SystemCallArchitectures=native
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=duckdns
