@@ -46,6 +46,7 @@ from .grammar_def import (
 )
 from .parser import ParseNode
 from .pipeline import Analyzer, StatementResult
+from .suggest import corrections
 
 #: Where the static files live.
 ASSETS = Path(__file__).resolve().parent / "webassets"
@@ -137,7 +138,59 @@ def derivation_steps(result: StatementResult, grammar: PreparedGrammar) -> list[
     return lines
 
 
-def analysis_json(result: StatementResult, grammar: PreparedGrammar) -> dict:
+def corrections_json(report) -> dict:
+    """Serialise a :class:`~yca.suggest.CorrectionReport` for the browser."""
+    return {
+        "kind": report.kind,
+        "headline": report.headline,
+        "suggestions": [
+            {
+                "lexeme": s.lexeme,
+                "line": s.line,
+                "column": s.column,
+                "advice": s.advice,
+                "confident": s.confident,
+                "split": list(s.split) if s.split else None,
+                "replacement": s.replacement,
+                "candidates": [
+                    {
+                        "form": c.form,
+                        "type": c.token_type,
+                        "languages": list(c.languages),
+                        "gloss": c.gloss,
+                        "score": c.score,
+                        "reason": c.reason,
+                        "source": c.source,
+                    }
+                    for c in s.candidates
+                ],
+            }
+            for s in report.suggestions
+        ],
+        "hint": (
+            {
+                "advice": report.hint.advice,
+                "message": report.hint.message,
+                "atLexeme": report.hint.at_lexeme,
+                "line": report.hint.line,
+                "column": report.hint.column,
+                "expected": [
+                    {"terminal": t, "examples": report.hint.examples.get(t, [])}
+                    for t in report.hint.expected
+                ],
+            }
+            if report.hint is not None
+            else None
+        ),
+        "proposal": report.proposal if report.has_proposal else "",
+        "proposalAccepted": report.proposal_accepted,
+        "proposalNote": report.proposal_note,
+    }
+
+
+def analysis_json(
+    result: StatementResult, grammar: PreparedGrammar, analyzer: Analyzer | None = None
+) -> dict:
     return {
         "text": result.text,
         "verdict": result.verdict,
@@ -170,6 +223,9 @@ def analysis_json(result: StatementResult, grammar: PreparedGrammar) -> dict:
         ],
         "derivation": derivation_steps(result, grammar),
         "expected": list(result.parse.expected),
+        # The correction engine turns a rejection into advice; it is given the
+        # analyzer so it can re-run its own proposal instead of asserting it.
+        "corrections": corrections_json(corrections(result, analyzer)),
     }
 
 
@@ -460,7 +516,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             analyzer, grammar = self.state.ensure()
             result = analyzer.analyze_text(text, trace=True)
-            self._json(analysis_json(result, grammar))
+            self._json(analysis_json(result, grammar, analyzer))
         except Exception as exc:  # pragma: no cover - defensive
             self._json({"error": str(exc)}, HTTPStatus.INTERNAL_SERVER_ERROR)
 

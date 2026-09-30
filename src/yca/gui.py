@@ -35,6 +35,7 @@ from .analysis import frequency_report
 from .grammar import END, EPSILON
 from .grammar_def import prepare
 from .pipeline import Analyzer, StatementResult
+from .suggest import corrections
 
 # --------------------------------------------------------------------------
 # Palette
@@ -391,6 +392,7 @@ class AnalyzerApp(ttk.Frame):
             (52, 310, 270, 310),
         )
         self.deriv_view = self._make_text("Derivation")
+        self.fix_view = self._make_fix_panel()
         self.sets = self._make_table(
             "FIRST / FOLLOW",
             ("Nonterminal", "FIRST", "FOLLOW"),
@@ -456,6 +458,53 @@ class AnalyzerApp(ttk.Frame):
         text.tag_configure("eps", foreground=CLAY)
         text.tag_configure("head", foreground=INK, font=("Segoe UI", 10, "bold"))
         return text
+
+    def _make_fix_panel(self) -> tk.Text:
+        """The Grammar tab: advice, ranked spellings and an apply button.
+
+        It is a text panel rather than a table because the three things it has
+        to show -- a headline, per-lexeme advice and a proposal -- share no set
+        of columns.  The button below it is the only control in the window that
+        rewrites the entry box, so it stays disabled until the engine actually
+        has something to propose.
+        """
+        inner = self._card("Grammar")
+        inner.rowconfigure(0, weight=1)
+
+        text = tk.Text(inner, font=self._mono, wrap="word", relief="flat",
+                       background=CARD, foreground=INK, padx=14, pady=12,
+                       insertbackground=CLAY, selectbackground=HOVER,
+                       selectforeground=INK, state="disabled",
+                       borderwidth=0, highlightthickness=0)
+        text.grid(row=0, column=0, sticky="nsew")
+
+        vbar = ttk.Scrollbar(inner, orient="vertical", command=text.yview)
+        vbar.grid(row=0, column=1, sticky="ns")
+        text.configure(yscrollcommand=vbar.set)
+
+        text.tag_configure("good", foreground=MOSS,
+                           font=("Segoe UI", 10, "bold"))
+        text.tag_configure("bad", foreground=CLAY,
+                           font=("Segoe UI", 10, "bold"))
+        text.tag_configure("lex", foreground=CLAY)
+        text.tag_configure("cand", foreground=SLATE)
+        text.tag_configure("note", foreground=MIST)
+        text.tag_configure("prop", foreground=INK,
+                           font=("Consolas", 10, "bold"))
+
+        bar = ttk.Frame(inner, padding=(14, 0, 14, 10))
+        bar.grid(row=2, column=0, columnspan=2, sticky="ew")
+        self._fix_button = ttk.Button(bar, text="Use the proposed statement",
+                                      command=self._apply_proposal,
+                                      state="disabled")
+        self._fix_button.grid(row=0, column=0, sticky="w")
+        self._proposal = ""
+        return text
+
+    def _apply_proposal(self) -> None:
+        """Load the engine's proposal into the entry box and re-analyze it."""
+        if self._proposal:
+            self._load(self._proposal)
 
     def _build_statusbar(self) -> None:
         tk.Frame(self, background=RULE, height=1).grid(
@@ -548,6 +597,7 @@ class AnalyzerApp(ttk.Frame):
         self._fill_tree(result)
         self._fill_trace(result)
         self._fill_derivation(result)
+        self._fill_corrections(result)
 
     def _set_banner(self, text: str, accepted: bool | None) -> None:
         """Recolour the verdict banner and its accent stripe together."""
@@ -654,6 +704,54 @@ class AnalyzerApp(ttk.Frame):
             self.deriv_view,
             text + f"\n\n{len(lines) - 1} derivation steps.",
         )
+
+    def _fill_corrections(self, result: StatementResult) -> None:
+        """Show what the correction engine makes of the current verdict.
+
+        The analyzer is handed to the engine so that any proposal it makes is
+        re-run before it is displayed: the panel reports a checked outcome,
+        never an untested guess.
+        """
+        report = corrections(result, self._analyzer)
+
+        rows: list[tuple[str, str]] = [
+            (report.headline + "\n\n", "good" if report.accepted else "bad")
+        ]
+        for s in report.suggestions:
+            rows.append((s.lexeme, "lex"))
+            rows.append((f"   line {s.line}, column {s.column}\n", "note"))
+            rows.append((s.advice + "\n", ""))
+            for c in s.candidates:
+                gloss = f"   {c.gloss}" if c.gloss else ""
+                rows.append(
+                    (f"    {c.form:<18} {c.token_type:<7} {c.score:.2f}"
+                     f"   {c.reason}{gloss}\n", "cand")
+                )
+            rows.append(("\n", ""))
+
+        if report.hint is not None:
+            rows.append((report.hint.advice + "\n\n", ""))
+            for term in report.hint.expected:
+                examples = report.hint.examples.get(term, [])
+                shown = ", ".join(examples) if examples else "regular-expression rule"
+                rows.append((f"    {term:<8} {shown}\n", "cand"))
+            rows.append(("\n", ""))
+
+        if report.has_proposal:
+            rows.append(("Proposed statement\n", "note"))
+            rows.append((report.proposal + "\n", "prop"))
+            rows.append((report.proposal_note + "\n", "note"))
+            self._proposal = report.proposal
+            self._fix_button.configure(state="normal")
+        else:
+            self._proposal = ""
+            self._fix_button.configure(state="disabled")
+
+        self.fix_view.configure(state="normal")
+        self.fix_view.delete("1.0", "end")
+        for chunk, tag in rows:
+            self.fix_view.insert("end", chunk, tag or ())
+        self.fix_view.configure(state="disabled")
 
     def _fill_sets(self) -> None:
         table = self._grammar.table

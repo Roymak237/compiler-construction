@@ -3,7 +3,7 @@
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
 \usepackage{lmodern}
-\usepackage[margin=2.1cm]{geometry}
+\usepackage[margin=1.8cm]{geometry}
 \usepackage{array}
 \usepackage[table,dvipsnames]{xcolor}
 \usepackage{longtable}
@@ -59,6 +59,59 @@
 %% Captions in the same ink as the headings, and set apart from the body.
 \usepackage[font=small,labelfont={bf,color=ink},textfont=it,skip=3pt]{caption}
 
+%% ----------------------------------------------------------- screenshots
+%% The brief requires screenshots of the working analyzer. They live in
+%% docs/screenshots/, or ../screenshots/ when the .tex is compiled from
+%% the repository root.
+%%
+%% \IfFileExists degrades a missing capture to a labelled placeholder
+%% rather than failing the build -- the same policy as the cover crest.
+%% The placeholder names the file it wants, so it doubles as a worklist.
+%%
+%% The placeholder reserves the height a real capture will occupy (16:10,
+%% the usual proportion of a maximised window), so the page count does not
+%% jump when the real images are dropped in. The width and height go
+%% through length registers because TeX cannot parse two chained factors
+%% such as "0.625 0.8\linewidth".
+\newlength{\shotwd}
+\newlength{\shotht}
+%% #1 file name, #2 fraction of the line width, #3 height as a fraction
+%% of the width. All three commands take the same three arguments so a
+%% caller never has to know whether the file happens to be present.
+\newcommand{\shotmissing}[3]{%
+  \setlength{\shotwd}{#2\linewidth}%
+  \setlength{\shotht}{#3\shotwd}%
+  \setlength{\fboxsep}{0pt}%
+  \fcolorbox{rule}{parchment}{%
+    \begin{minipage}[c][\shotht][c]{\shotwd}%
+      \centering\small\color{clay}\itshape
+      screenshot not yet captured\\[0.4em]
+      {\ttfamily\footnotesize\upshape screenshots/#1}
+    \end{minipage}}}
+%% #1 file name, #2 fraction of the line width, #3 placeholder ratio.
+%% A real capture keeps its own proportions, so #3 is consulted only when
+%% the file is absent.
+\newcommand{\shotimg}[3]{%
+  \setlength{\fboxsep}{0pt}\setlength{\fboxrule}{0.4pt}%
+  \IfFileExists{screenshots/#1}
+    {\fcolorbox{rule}{white}{\includegraphics[width=#2\linewidth]{screenshots/#1}}}
+    {\IfFileExists{../screenshots/#1}
+       {\fcolorbox{rule}{white}{\includegraphics[width=#2\linewidth]{../screenshots/#1}}}
+       {\shotmissing{#1}{#2}{#3}}}}
+
+%% Float placement. The defaults strand a lot of whitespace once a
+%% document carries this many figures: LaTeX would rather push a figure to
+%% its own page than let it share one with text. These settings let a
+%% figure sit with the prose it illustrates, which is where it belongs
+%% anyway, and reclaim about a page across the report.
+\setlength{\textfloatsep}{9pt plus 2pt minus 2pt}
+\setlength{\floatsep}{8pt plus 2pt minus 2pt}
+\setlength{\intextsep}{9pt plus 2pt minus 2pt}
+\renewcommand{\topfraction}{0.92}
+\renewcommand{\bottomfraction}{0.85}
+\renewcommand{\textfraction}{0.07}
+\renewcommand{\floatpagefraction}{0.80}
+
 %% ------------------------------------------------------------- verbatim
 %% Code and machine output sit on parchment so they read as quoted
 %% material rather than as prose.
@@ -71,9 +124,9 @@
 
 \setlength{\parindent}{0pt}
 \setlength{\parskip}{0.34em}
-\renewcommand{\arraystretch}{1.0}
+\renewcommand{\arraystretch}{0.95}
 \setlist{nosep,leftmargin=1.4em}
-\linespread{0.98}
+\linespread{0.96}
 
 %% Keep table captions compact.
 \setlength{\LTpre}{0.45em}
@@ -82,7 +135,7 @@
 %% The logo sits beside the .tex, or one level up beside the source tree.
 \graphicspath{{./}{../}}
 
-\hypersetup{pdfauthor={Fru Chi Ehud Neba, Daniel Victor, Tchelibo Ayolo Sherrylle Claire}}
+\hypersetup{pdfauthor={Fru Chi Ehud Neba, Daniel Victor, Tchelibo Ayolo Sherrylle Claire, Kefeyin Hariette Sela}}
 \begin{document}
 \begin{titlepage}
 \centering
@@ -108,6 +161,7 @@ Informal Urban Communication in Yaound\'e\par}
 {\large Fru Chi Ehud Neba} & {\large\ttfamily ICTU20241812} \\[0.35em]
 {\large Daniel Victor} & {\large\ttfamily ICTU20241332} \\[0.35em]
 {\large Tchelibo Ayolo Sherrylle Claire} & {\large\ttfamily ICTU20241316} \\[0.35em]
+{\large Kefeyin Hariette Sela} & {\large\ttfamily ICTU20241471} \\[0.35em]
 \end{tabular}
 \vfill
 {\large \today\par}
@@ -116,9 +170,92 @@ Informal Urban Communication in Yaound\'e\par}
 \vspace{1.2em}
 
 \section{Introduction and objective}
+\label{sec:introduction-and-objective}
 Yaounde is a multilingual city. In the course of a single short exchange a speaker may draw on English, French, Cameroonian Pidgin, Camfranglais slang and a local language such as Ewondo or Fulfulde, and may do so inside one sentence or even inside one word. The objective of this project is to build a mini-language analyzer that performs lexical and syntactic analysis over that kind of speech: it takes a transcribed utterance, divides it into tokens according to a declared lexical specification, and decides whether the resulting token sequence belongs to a context-free grammar constructed from the collected data.
 
 Two points define the scope, and they matter for reading everything that follows. First, ``accepted'' means derivable by our grammar; it does not mean grammatical, correct or meaningful in any broader sense, and ``rejected'' does not mean the speaker was wrong. Second, the analyzer performs lexical and syntactic analysis only --- the semantic analysis, intermediate representation, optimization and code generation phases of a full compiler are outside the brief and are not implemented.
+
+\begin{figure}[!htbp]
+\centering
+\begin{tikzpicture}[
+  scale=0.95, transform shape,
+  font=\small,
+  >={Stealth[length=2.2mm,width=1.7mm]},
+  state/.style={draw=ink, fill=white, line width=0.9pt,
+                circle, minimum size=10mm, inner sep=0.3mm,
+                align=center, font=\scriptsize\bfseries},
+  probe/.style={draw=moss, fill=moss!8, line width=0.9pt,
+                rounded corners=2.5pt, align=center,
+                font=\scriptsize, inner sep=1.5mm},
+  final/.style={draw=clay, fill=clay!10, line width=1pt,
+                rounded corners=2.5pt, align=center,
+                font=\scriptsize\bfseries, inner sep=1.5mm},
+  box/.style={draw=rule, fill=parchment, line width=0.7pt,
+              rounded corners=1.5pt, align=center,
+              font=\scriptsize\ttfamily, inner sep=1.3mm},
+  cell/.style={draw=rule, fill=white, line width=0.6pt,
+               minimum width=9mm, minimum height=5mm,
+               font=\tiny\ttfamily, inner sep=0.5mm},
+  live/.style={draw=slate, fill=slate!8, line width=1pt,
+               rounded corners=2.5pt, align=center,
+               font=\scriptsize, inner sep=1.6mm},
+  dead/.style={draw=rule, fill=white, line width=0.7pt,
+               rounded corners=2.5pt, align=center,
+               font=\scriptsize, inner sep=1.6mm,
+               dash pattern=on 2pt off 1.6pt, text=slate!60},
+  flow/.style={->, line width=0.9pt, draw=ink!75},
+  back/.style={->, line width=0.7pt, draw=slate!70,
+               dash pattern=on 2pt off 1.6pt},
+  feed/.style={->, line width=0.7pt, draw=clay!80,
+               dash pattern=on 2pt off 1.6pt},
+  lab/.style={font=\tiny, inner sep=0.6mm, fill=white,
+              text=ink!85, align=center},
+  note/.style={font=\tiny\itshape, text=slate, align=center},
+]
+\node[box, text width=22mm] (src) at (0,0) {transcribed\\ utterance};
+\node[live, text width=25mm] (lex) at (3.4,0)
+  {\textbf{lexical analysis}\\ {\tiny lexer.py}};
+\node[live, text width=25mm] (syn) at (6.9,0)
+  {\textbf{syntax analysis}\\ {\tiny parser.py}};
+
+\node[dead, text width=22mm] (sem) at (0.7,-4.2) {semantic\\ analysis};
+\node[dead, text width=22mm] (ir)  at (3.5,-4.2) {intermediate\\ code};
+\node[dead, text width=22mm] (opt) at (6.3,-4.2) {optimisation};
+\node[dead, text width=22mm] (gen) at (9.1,-4.2) {code\\ generation};
+
+\node[box, text width=29mm] (spec) at (3.4,-1.9)
+  {PHRASES, WORDS,\\ PATTERNS};
+\node[box, text width=29mm] (gram) at (6.9,-1.9)
+  {grammar, FIRST,\\ FOLLOW, table M};
+
+\node[live, text width=58mm, draw=clay, fill=clay!8] (err) at (5.15,2.1)
+  {\textbf{error reporting and correction}\\[1pt]
+   {\tiny every unknown lexeme and every empty table cell is reported with a
+    position, and answered with the closest declared spelling}};
+
+\draw[flow] (src) -- (lex);
+\draw[flow] (lex) -- node[lab, above] {tokens} (syn);
+\draw[flow] (sem) -- (ir);
+\draw[flow] (ir) -- (opt);
+\draw[flow] (opt) -- (gen);
+
+\draw[flow] (syn.east) -- (10.4,0) -- (10.4,-3.0)
+  -- node[lab, above] {parse tree} (0.7,-3.0) -- (sem.north);
+
+\draw[feed] (spec.north) -- (lex.south);
+\draw[feed] (gram.north) -- (syn.south);
+
+\draw[feed] (lex.north) -- (err.south west);
+\draw[feed] (syn.north) -- (err.south);
+
+\node[note, text width=86mm] at (4.6,-5.4)
+  {Solid: implemented, tested and measured in this project. Dashed: the
+   synthesis phases a full compiler would add, deliberately outside the scope
+   of a lexical and syntactic analyzer.};
+\end{tikzpicture}
+\caption{The classical phases of a compiler, with the boundary of this project marked. Solid boxes are implemented, tested and measured here; dashed boxes are the synthesis phases a full compiler would add. The two dashed feeds from below are the declarative inputs --- the lexical specification and the grammar --- which the phases consult rather than contain.}
+\label{fig:phases}
+\end{figure}
 
 Every table in this document is generated by the analyzer at the moment the report is produced. No figure has been copied across by hand, so the report cannot disagree with the program it describes.
 
@@ -135,6 +272,8 @@ Every table in this document is generated by the analyzer at the moment the repo
 \end{enumerate}
 
 \subsection{Where each requirement is addressed}
+Section numbers below are cross-references resolved by LaTeX at compile time rather than numbers typed in by hand, so they cannot fall out of step with the document as it is edited.
+
 \begingroup
 \small
 \rowcolors{1}{}{zebra}
@@ -154,30 +293,33 @@ Every table in this document is generated by the analyzer at the moment the repo
 \endfoot
 \bottomrule
 \endlastfoot
-Collect statements from daily communication & Section 3, with the collection protocol in Section 2 \\
-Transcribe faithfully, including slang & Section 2.2 (transcription conventions), Section 3 \\
-Identify token types & Section 5 \\
-Define regular expressions for each token class & Section 6 \\
-Produce a token table for every statement & Section 8 \\
-Analyze token frequency and variation & Section 10 \\
-Design a context-free grammar & Section 12 \\
-Eliminate left recursion & Section 13 \\
-Apply left factoring & Section 14 \\
-Compute FIRST and FOLLOW sets & Section 15 \\
-Construct the LL(1) parsing table & Sections 16 and 17 \\
-Implement a parser & Section 19 \\
-Show accepted and rejected sentences & Section 20 \\
-Show parse trees and derivations & Sections 21, 22 and 23 \\
-Discuss linguistic complexity & Section 25 \\
-State limitations & Section 26 \\
+Collect statements from daily communication & Section~\ref{sec:data-collection-and-raw-statements}, with the collection protocol in Section~\ref{sec:methodology} \\
+Transcribe faithfully, including slang & Section~\ref{sec:methodology} and Section~\ref{sec:data-collection-and-raw-statements} \\
+Identify token types & Section~\ref{sec:lexical-analysis-the-token-inventory} \\
+Define regular expressions for each token class & Section~\ref{sec:lexical-specification-regular-expressions} \\
+Produce a token table for every statement & Section~\ref{sec:token-tables-statement-by-statement} \\
+Analyze token frequency and variation & Section~\ref{sec:token-frequency-and-variation} \\
+Design a context-free grammar & Section~\ref{sec:syntactic-analysis-the-grammar} \\
+Eliminate left recursion & Section~\ref{sec:removing-left-recursion} \\
+Apply left factoring & Section~\ref{sec:left-factoring} \\
+Compute FIRST and FOLLOW sets & Section~\ref{sec:first-and-follow-sets} \\
+Construct the LL(1) parsing table & Section~\ref{sec:the-ll-1-parsing-table} and Section~\ref{sec:conflicts-and-how-they-are-resolved} \\
+Implement a parser & Section~\ref{sec:the-parser} \\
+Report errors and propose corrections & Section~\ref{sec:error-reporting-and-correction} \\
+Show accepted and rejected sentences & Section~\ref{sec:test-results-accepted-and-rejected-sentences} \\
+Show parse trees and derivations & Section~\ref{sec:worked-parse-traces}, Section~\ref{sec:leftmost-derivations} and Section~\ref{sec:a-further-parse-tree} \\
+Screenshots of the working analyzer & Figures throughout; the front ends are shown in Section~\ref{sec:how-to-run-the-analyzer} \\
+Discuss linguistic complexity & Section~\ref{sec:why-yaounde-communication-is-linguistically-complex} \\
+State limitations & Section~\ref{sec:limitations-and-future-work} \\
 \end{longtable}
 \endgroup
 
 \section{Methodology}
+\label{sec:methodology}
 \subsection{Collection protocol}
 Statements were to be gathered in ordinary public settings where people speak to one another without adjusting their register for an observer: taxi ranks, markets, roadside kiosks, the queues that form when the power fails. The unit of collection is a single utterance, recorded in writing at the time or immediately afterwards, together with the place, an indication of who was speaking and what the exchange was about.
 
-No recording equipment was used. This is a limitation and it is worth naming: writing from memory loses prosody, hesitation length and overlap, and it introduces the collector's own hearing into the data. The alternative --- recording people without their knowledge --- was not acceptable, and recording with their knowledge changes the register that is the object of study. The compromise taken here favours ethics over fidelity, and the cost is recorded in Section 26.
+No recording equipment was used. This is a limitation and it is worth naming: writing from memory loses prosody, hesitation length and overlap, and it introduces the collector's own hearing into the data. The alternative --- recording people without their knowledge --- was not acceptable, and recording with their knowledge changes the register that is the object of study. The compromise taken here favours ethics over fidelity, and the cost is recorded in Section~\ref{sec:limitations-and-future-work}.
 
 \subsection{Transcription conventions}
 Transcription is the point at which most information is lost, so the rules were fixed in advance and applied uniformly.
@@ -214,6 +356,7 @@ Record one utterance per entry, with its terminator. & The grammar's start symbo
 Once transcribed, each statement passes through the same pipeline: the lexer assigns a token type to every item, the parser attempts a derivation, and the outcome is recorded with its justification. Where a statement was rejected, the specification or the grammar was examined and either extended --- if the gap was a genuine omission --- or left alone and the rejection documented. Both kinds of decision occurred during development and both are reported.
 
 \section{Data collection and raw statements}
+\label{sec:data-collection-and-raw-statements}
 The corpus holds 15 statements spanning 10 topic areas: Taxi and commuting, Taxi bargaining, Poor internet connectivity, Limited electricity supply, Market bargaining, Rainy season struggles, Fuel scarcity, Bendskin communication, Security checkpoint, Life at the ICT University.
 
 These statements were written to exercise the analyzer in the registers the brief names. Everything else in this document is derived from them, so replacing the corpus regenerates every table and figure automatically.
@@ -259,6 +402,7 @@ S15 & Life at the ICT University & Mola, the prof don drop resultats for lundi. 
 Statements are written exactly as heard, including slang, code-mixing, hesitation sounds and incomplete structures. Nothing is corrected into standard English or French. The analyzer preserves the original spelling on every token and folds case and accents only to build a dictionary lookup key, so the evidence is never altered by the tooling.
 
 \section{System architecture}
+\label{sec:system-architecture}
 The analyzer is organised as a pipeline. Each stage has one responsibility and hands a well-defined value to the next, which is what allows this report to be generated from the same code that does the work.
 
 
@@ -367,12 +511,24 @@ pipeline.py & Joins lexer and parser, producing one result per statement. \\
 analysis.py & Frequency, spelling variation and code-mixing statistics. \\
 report.py & Generates this document. \\
 cli.py & The command-line interface. \\
+gui.py & The desktop application, built on Tkinter. \\
+web.py & The browser front end and its JSON API, served from the standard library alone. \\
 \end{longtable}
 \endgroup
 
-One design decision deserves comment. The grammar transformations are implemented rather than done by hand and pasted in. This costs more code, but it means Sections 13 and 14 show what the program actually did, and that changing the grammar in one place updates the transformations, the FIRST and FOLLOW sets, the parse table and every trace in this report at once. A report that is written by hand alongside a program will eventually contradict it.
+One design decision deserves comment. The grammar transformations are implemented rather than done by hand and pasted in. This costs more code, but it means Section~\ref{sec:removing-left-recursion} and Section~\ref{sec:left-factoring} show what the program actually did, and that changing the grammar in one place updates the transformations, the FIRST and FOLLOW sets, the parse table and every trace in this report at once. A report that is written by hand alongside a program will eventually contradict it.
+
+The analyzer is reachable three ways --- a command line, a desktop window and a browser --- but all three construct the same Analyzer object over the same specification and grammar, so they cannot disagree about a verdict. The screenshots throughout this report are taken from the browser front end because it shows the most detail at once; the figures in this section show the software as a whole, and later sections show the particular panel that evidences the point under discussion.
+
+\begin{figure}[!htbp]
+\centering
+\shotimg{app-overview.png}{0.72}{0.62}
+\caption{The analyzer immediately after analysing a corpus statement. The verdict, the token stream, the parse tree, the parser trace, the derivation, the grammar sets and the corpus results are each on their own tab.}
+\label{fig:app-overview}
+\end{figure}
 
 \section{Lexical analysis: the token inventory}
+\label{sec:lexical-analysis-the-token-inventory}
 A token type is the category the parser sees: it is a terminal symbol of the grammar. Information that is linguistically interesting but syntactically irrelevant --- whether an item is slang, and which languages it draws on --- is carried alongside the token as annotation rather than folded into its type. Keeping the two apart allows a slang noun and a French noun to behave identically during parsing while still being counted separately in the frequency analysis.
 
 \begingroup
@@ -456,6 +612,7 @@ VOC & 8 \\
 \endgroup
 
 \section{Lexical specification: regular expressions}
+\label{sec:lexical-specification-regular-expressions}
 The lexer applies three layers in a fixed order, and the order is part of the specification. Multiword lexemes are tried first, then the closed vocabulary, then the regular expressions. Within the first layer the longest candidate wins.
 
 \begingroup
@@ -501,7 +658,92 @@ Anything the three layers do not cover is emitted as an UNKNOWN token and record
 \subsection{Relation to finite automata}
 A conventional lexer compiles its regular expressions into a single deterministic finite automaton and runs the input through it once, remembering the last accepting state in order to implement maximal munch. The specification here is equivalent in expressive power --- every rule is regular, and the dictionary layers are finite sets, which are trivially regular --- but it is implemented as ordered dictionary lookup followed by regular-expression matching rather than as one combined automaton.
 
-This is a deliberate trade. A combined automaton would be faster, but the specification would stop being readable: the point of this artefact is that a reader can see which rule classified which word, and the rule column of every token table in Section 8 depends on that being recoverable. At corpus scale the performance difference is irrelevant, and the priority is that the classification be auditable.
+\begin{figure}[!htbp]
+\centering
+\begin{tikzpicture}[
+  scale=0.92, transform shape,
+  font=\small,
+  >={Stealth[length=2.2mm,width=1.7mm]},
+  state/.style={draw=ink, fill=white, line width=0.9pt,
+                circle, minimum size=10mm, inner sep=0.3mm,
+                align=center, font=\scriptsize\bfseries},
+  probe/.style={draw=moss, fill=moss!8, line width=0.9pt,
+                rounded corners=2.5pt, align=center,
+                font=\scriptsize, inner sep=1.5mm},
+  final/.style={draw=clay, fill=clay!10, line width=1pt,
+                rounded corners=2.5pt, align=center,
+                font=\scriptsize\bfseries, inner sep=1.5mm},
+  box/.style={draw=rule, fill=parchment, line width=0.7pt,
+              rounded corners=1.5pt, align=center,
+              font=\scriptsize\ttfamily, inner sep=1.3mm},
+  cell/.style={draw=rule, fill=white, line width=0.6pt,
+               minimum width=9mm, minimum height=5mm,
+               font=\tiny\ttfamily, inner sep=0.5mm},
+  live/.style={draw=slate, fill=slate!8, line width=1pt,
+               rounded corners=2.5pt, align=center,
+               font=\scriptsize, inner sep=1.6mm},
+  dead/.style={draw=rule, fill=white, line width=0.7pt,
+               rounded corners=2.5pt, align=center,
+               font=\scriptsize, inner sep=1.6mm,
+               dash pattern=on 2pt off 1.6pt, text=slate!60},
+  flow/.style={->, line width=0.9pt, draw=ink!75},
+  back/.style={->, line width=0.7pt, draw=slate!70,
+               dash pattern=on 2pt off 1.6pt},
+  feed/.style={->, line width=0.7pt, draw=clay!80,
+               dash pattern=on 2pt off 1.6pt},
+  lab/.style={font=\tiny, inner sep=0.6mm, fill=white,
+              text=ink!85, align=center},
+  note/.style={font=\tiny\itshape, text=slate, align=center},
+]
+\node[state] (start) at (0,0) {start};
+\node[live, text width=20mm] (skip) at (2.7,0)
+  {\textbf{skip}\\ spaces, quotes,\\ brackets};
+
+\node[probe, text width=32mm] (ph) at (7.2,0)
+  {\textbf{1. phrase probe}\\ longest run of two or three\\
+   words listed in \texttt{PHRASES}};
+\node[probe, text width=32mm] (vo) at (7.2,-2.0)
+  {\textbf{2. word probe}\\ the folded word, looked up\\
+   in \texttt{WORDS}};
+\node[probe, text width=32mm] (re) at (7.2,-4.0)
+  {\textbf{3. pattern probe}\\ first rule of \texttt{PATTERNS}\\
+   that matches at this position};
+
+\node[final, text width=17mm] (emit) at (11.9,-2.0) {emit token};
+\node[final, text width=19mm] (unk) at (11.9,-5.8)
+  {UNKNOWN\\ and a LexError};
+
+\node[state] (done) at (0,-2.7) {done};
+
+\draw[flow] (start) -- (skip);
+\draw[flow] (skip) -- (ph);
+
+\draw[flow] (ph.east) -| node[lab, pos=0.25, above] {hit} (emit.north);
+\draw[flow] (vo.east) -- node[lab, above] {hit} (emit.west);
+\draw[flow] (re.east) -| node[lab, pos=0.25, below] {hit} (emit.south);
+
+\draw[flow] (ph) -- node[lab, right] {miss} (vo);
+\draw[flow] (vo) -- node[lab, right] {miss} (re);
+\draw[flow] (re.south) |- node[lab, pos=0.7, above] {no rule} (unk.west);
+
+\draw[back] (emit.east) -- (13.5,-2.0) -- (13.5,1.7)
+  -- node[lab, above] {advance past the match, then scan the next position}
+  (2.7,1.7) -- (skip.north);
+\draw[back] (unk.south) -- (11.9,-6.9) -- (13.5,-6.9) -- (13.5,-2.35);
+
+\draw[flow] (skip.south west) -- node[lab, sloped, above] {input exhausted}
+  (done.north east);
+
+\node[note, text width=42mm] at (2.4,-5.2)
+  {Longest match first: all three probes run in this order at every
+   position, so a longer reading always wins, and no part of the
+   transcription is ever silently discarded.};
+\end{tikzpicture}
+\caption{The scanner drawn as a finite-state machine. The three probes are tried in the order shown at every position, which is how maximal munch is obtained without building a combined automaton; the dashed edge is the loop back over the remaining input.}
+\label{fig:lexer-automaton}
+\end{figure}
+
+This is a deliberate trade. A combined automaton would be faster, but the specification would stop being readable: the point of this artefact is that a reader can see which rule classified which word, and the rule column of every token table in Section~\ref{sec:token-tables-statement-by-statement} depends on that being recoverable. At corpus scale the performance difference is irrelevant, and the priority is that the classification be auditable.
 
 \subsection{A worked lexical trace}
 Taking 'Chef, drop me for Carrefour Obili.', the lexer proceeds left to right. At each position it first tries the longest multiword entry that could start there, then a single-word entry, then the patterns in order. The first column below is the position in the input; the last names the rule that succeeded.
@@ -537,180 +779,190 @@ Taking 'Chef, drop me for Carrefour Obili.', the lexer proceeds left to right. A
 \endgroup
 
 \section{Token tables, statement by statement}
-The table below is the exact output of the lexical analyzer for every collected statement, in order. The rule column names the lexical rule that matched, so each classification can be traced back to the specification of Section 6. A bold line introduces each statement.
+\label{sec:token-tables-statement-by-statement}
+The table below is the exact output of the lexical analyzer for every collected statement, in order. The rule column names the lexical rule that matched, so each classification can be traced back to the specification of Section~\ref{sec:lexical-specification-regular-expressions}. A bold line introduces each statement.
 
 \begingroup
 \scriptsize
 \rowcolors{1}{}{zebra}
-\begin{longtable}{L{0.03} L{0.13} L{0.07} L{0.12} L{0.04} L{0.08} L{0.28}}
+\begin{longtable}{L{0.04} L{0.22} L{0.14} L{0.22}}
 \caption{Lexical analysis of every collected statement.}\\
 \toprule
-\rowcolor{headfill}\textbf{\color{ink}\#} & \textbf{\color{ink}Lexeme} & \textbf{\color{ink}Token} & \textbf{\color{ink}Language} & \textbf{\color{ink}Slang} & \textbf{\color{ink}Rule} & \textbf{\color{ink}Gloss} \\
+\rowcolor{headfill}\textbf{\color{ink}\#} & \textbf{\color{ink}Lexeme} & \textbf{\color{ink}Token} & \textbf{\color{ink}Rule} \\
 \midrule
 \endfirsthead
 \caption[]{Lexical analysis of every collected statement. \textit{(continued)}}\\
 \toprule
-\rowcolor{headfill}\textbf{\color{ink}\#} & \textbf{\color{ink}Lexeme} & \textbf{\color{ink}Token} & \textbf{\color{ink}Language} & \textbf{\color{ink}Slang} & \textbf{\color{ink}Rule} & \textbf{\color{ink}Gloss} \\
+\rowcolor{headfill}\textbf{\color{ink}\#} & \textbf{\color{ink}Lexeme} & \textbf{\color{ink}Token} & \textbf{\color{ink}Rule} \\
 \midrule
 \endhead
 \midrule
-\multicolumn{7}{r}{\footnotesize\textit{\color{slate}continued on the next page}}\\
+\multicolumn{4}{r}{\footnotesize\textit{\color{slate}continued on the next page}}\\
 \endfoot
 \bottomrule
 \endlastfoot
-\multicolumn{7}{@{}l@{}}{\rule{0pt}{2.6ex}\textbf{S01} Chef, drop me for Carrefour Obili. \textit{(ACCEPTED)}} \\
-1 & Chef & VOC & French &  & R-VOCAB & boss, sir \\
-2 & , & SEP & Symbol &  & R-SEP &  \\
-3 & drop & VERB & English &  & R-VOCAB &  \\
-4 & me & PRON & English &  & R-VOCAB &  \\
-5 & for & PREP & English &  & R-VOCAB &  \\
-6 & Carrefour & NOUN & French &  & R-VOCAB &  \\
-7 & Obili & NOUN & ProperName &  & R-VOCAB & Yaounde neighbourhood or landmark \\
-8 & . & TERM & Symbol &  & R-TERM &  \\
-\multicolumn{7}{@{}l@{}}{\rule{0pt}{2.6ex}\textbf{S02} Patron, deux cents na for Mvan? \textit{(ACCEPTED)}} \\
-1 & Patron & VOC & French &  & R-VOCAB & boss, sir \\
-2 & , & SEP & Symbol &  & R-SEP &  \\
-3 & deux cents & NUM & French &  & R-PHRASE & two hundred francs \\
-4 & na & COP & Pidgin &  & R-VOCAB & equative copula: it is \\
-5 & for & PREP & English &  & R-VOCAB &  \\
-6 & Mvan & NOUN & ProperName &  & R-VOCAB & Yaounde neighbourhood or landmark \\
-7 & ? & TERM & Symbol &  & R-TERM &  \\
-\multicolumn{7}{@{}l@{}}{\rule{0pt}{2.6ex}\textbf{S03} Hmmm, chef, this road don cut, pay cinq cents. \textit{(ACCEPTED)}} \\
-1 & Hmmm & INTERJ & Pidgin & yes & R-VOCAB & hesitation or exasperation cry \\
-2 & , & SEP & Symbol &  & R-SEP &  \\
-3 & chef & VOC & French &  & R-VOCAB & boss, sir \\
-4 & , & SEP & Symbol &  & R-SEP &  \\
-5 & this & DET & English &  & R-VOCAB &  \\
-6 & road & NOUN & English &  & R-VOCAB &  \\
-7 & don & AUX & Pidgin &  & R-VOCAB & perfective / progressive aspect marker \\
-8 & cut & VERB & English &  & R-VOCAB &  \\
-9 & , & SEP & Symbol &  & R-SEP &  \\
-10 & pay & VERB & English &  & R-VOCAB &  \\
-11 & cinq cents & NUM & French &  & R-PHRASE & five hundred francs \\
-12 & . & TERM & Symbol &  & R-TERM &  \\
-\multicolumn{7}{@{}l@{}}{\rule{0pt}{2.6ex}\textbf{S04} Ekiee, this MTN reseau dey small small today. \textit{(ACCEPTED)}} \\
-1 & Ekiee & INTERJ & Ewondo & yes & R-VOCAB & Ewondo cry of shock or dismay \\
-2 & , & SEP & Symbol &  & R-SEP &  \\
-3 & this & DET & English &  & R-VOCAB &  \\
-4 & MTN & NOUN & ProperName &  & R-VOCAB & utility or telecom operator \\
-5 & reseau & NOUN & French &  & R-VOCAB &  \\
-6 & dey & AUX & Pidgin &  & R-VOCAB & perfective / progressive aspect marker \\
-7 & small small & ADV & Pidgin &  & R-PHRASE & little by little, intermittently \\
-8 & today & ADV & English &  & R-VOCAB &  \\
-9 & . & TERM & Symbol &  & R-TERM &  \\
-\multicolumn{7}{@{}l@{}}{\rule{0pt}{2.6ex}\textbf{S05} Je wanda, my forfait don finish! \textit{(ACCEPTED)}} \\
-1 & Je wanda & INTERJ & Pidgin/French & yes & R-PHRASE & I am amazed / unbelievable \\
-2 & , & SEP & Symbol &  & R-SEP &  \\
-3 & my & DET & English &  & R-VOCAB &  \\
-4 & forfait & NOUN & French &  & R-VOCAB &  \\
-5 & don & AUX & Pidgin &  & R-VOCAB & perfective / progressive aspect marker \\
-6 & finish & VERB & English &  & R-VOCAB &  \\
-7 & ! & TERM & Symbol &  & R-TERM &  \\
-\multicolumn{7}{@{}l@{}}{\rule{0pt}{2.6ex}\textbf{S06} Garrr, ENEO don cut courant since ce matin. \textit{(ACCEPTED)}} \\
-1 & Garrr & INTERJ & Camfranglais & yes & R-VOCAB & emphatic street exclamation \\
-2 & , & SEP & Symbol &  & R-SEP &  \\
-3 & ENEO & NOUN & ProperName &  & R-VOCAB & utility or telecom operator \\
-4 & don & AUX & Pidgin &  & R-VOCAB & perfective / progressive aspect marker \\
-5 & cut & VERB & English &  & R-VOCAB &  \\
-6 & courant & NOUN & French &  & R-VOCAB &  \\
-7 & since & PREP & English &  & R-VOCAB &  \\
-8 & ce matin & NOUN & French &  & R-PHRASE & this morning \\
-9 & . & TERM & Symbol &  & R-TERM &  \\
-\multicolumn{7}{@{}l@{}}{\rule{0pt}{2.6ex}\textbf{S07} Courant no dey, we dey wait la nuit. \textit{(ACCEPTED)}} \\
-1 & Courant & NOUN & French &  & R-VOCAB &  \\
-2 & no & NEG & English &  & R-VOCAB &  \\
-3 & dey & AUX & Pidgin &  & R-VOCAB & perfective / progressive aspect marker \\
-4 & , & SEP & Symbol &  & R-SEP &  \\
-5 & we & PRON & English &  & R-VOCAB &  \\
-6 & dey & AUX & Pidgin &  & R-VOCAB & perfective / progressive aspect marker \\
-7 & wait & VERB & English &  & R-VOCAB &  \\
-8 & la nuit & NOUN & French &  & R-PHRASE & the night \\
-9 & . & TERM & Symbol &  & R-TERM &  \\
-\multicolumn{7}{@{}l@{}}{\rule{0pt}{2.6ex}\textbf{S08} Mami, reduce this tomate small, na trop cher. \textit{(ACCEPTED)}} \\
-1 & Mami & VOC & Pidgin &  & R-VOCAB & market woman, mother \\
-2 & , & SEP & Symbol &  & R-SEP &  \\
-3 & reduce & VERB & English &  & R-VOCAB &  \\
-4 & this & DET & English &  & R-VOCAB &  \\
-5 & tomate & NOUN & French &  & R-VOCAB &  \\
-6 & small & ADJ & Pidgin &  & R-VOCAB & small, a little \\
-7 & , & SEP & Symbol &  & R-SEP &  \\
-8 & na & COP & Pidgin &  & R-VOCAB & equative copula: it is \\
-9 & trop & ADV & French &  & R-VOCAB &  \\
-10 & cher & ADJ & French &  & R-VOCAB &  \\
-11 & . & TERM & Symbol &  & R-TERM &  \\
-\multicolumn{7}{@{}l@{}}{\rule{0pt}{2.6ex}\textbf{S09} Mbom, deux mille na last price o. \textit{(ACCEPTED)}} \\
-1 & Mbom & VOC & Camfranglais & yes & R-VOCAB & Camfranglais address term: my friend, mate \\
-2 & , & SEP & Symbol &  & R-SEP &  \\
-3 & deux mille & NUM & French &  & R-PHRASE & two thousand francs \\
-4 & na & COP & Pidgin &  & R-VOCAB & equative copula: it is \\
-5 & last & ADJ & English &  & R-VOCAB &  \\
-6 & price & NOUN & English &  & R-VOCAB &  \\
-7 & o & PART & Pidgin &  & R-VOCAB & emphatic final particle \\
-8 & . & TERM & Symbol &  & R-TERM &  \\
-\multicolumn{7}{@{}l@{}}{\rule{0pt}{2.6ex}\textbf{S10} Weh, rain don beat we for Damas. \textit{(ACCEPTED)}} \\
-1 & Weh & INTERJ & Pidgin & yes & R-VOCAB & cry of pity \\
-2 & , & SEP & Symbol &  & R-SEP &  \\
-3 & rain & NOUN & English &  & R-VOCAB &  \\
-4 & don & AUX & Pidgin &  & R-VOCAB & perfective / progressive aspect marker \\
-5 & beat & VERB & English &  & R-VOCAB &  \\
-6 & we & PRON & English &  & R-VOCAB &  \\
-7 & for & PREP & English &  & R-VOCAB &  \\
-8 & Damas & NOUN & ProperName &  & R-VOCAB & Yaounde neighbourhood or landmark \\
-9 & . & TERM & Symbol &  & R-TERM &  \\
-\multicolumn{7}{@{}l@{}}{\rule{0pt}{2.6ex}\textbf{S11} This boue dey full the chemin, taxi no dey come. \textit{(ACCEPTED)}} \\
-1 & This & DET & English &  & R-VOCAB &  \\
-2 & boue & NOUN & French &  & R-VOCAB &  \\
-3 & dey & AUX & Pidgin &  & R-VOCAB & perfective / progressive aspect marker \\
-4 & full & ADJ & English &  & R-VOCAB &  \\
-5 & the & DET & English &  & R-VOCAB &  \\
-6 & chemin & NOUN & French &  & R-VOCAB &  \\
-7 & , & SEP & Symbol &  & R-SEP &  \\
-8 & taxi & NOUN & English &  & R-VOCAB &  \\
-9 & no & NEG & English &  & R-VOCAB &  \\
-10 & dey & AUX & Pidgin &  & R-VOCAB & perfective / progressive aspect marker \\
-11 & come & VERB & English &  & R-VOCAB &  \\
-12 & . & TERM & Symbol &  & R-TERM &  \\
-\multicolumn{7}{@{}l@{}}{\rule{0pt}{2.6ex}\textbf{S12} Hmmm, queue for station dey long trop. \textit{(ACCEPTED)}} \\
-1 & Hmmm & INTERJ & Pidgin & yes & R-VOCAB & hesitation or exasperation cry \\
-2 & , & SEP & Symbol &  & R-SEP &  \\
-3 & queue & NOUN & English &  & R-VOCAB &  \\
-4 & for & PREP & English &  & R-VOCAB &  \\
-5 & station & NOUN & French &  & R-VOCAB &  \\
-6 & dey & AUX & Pidgin &  & R-VOCAB & perfective / progressive aspect marker \\
-7 & long & ADJ & English &  & R-VOCAB &  \\
-8 & trop & ADV & French &  & R-VOCAB &  \\
-9 & . & TERM & Symbol &  & R-TERM &  \\
-\multicolumn{7}{@{}l@{}}{\rule{0pt}{2.6ex}\textbf{S13} Bendskin man, carry me go Mokolo sharp sharp. \textit{(ACCEPTED)}} \\
-1 & Bendskin man & VOC & Pidgin/French & yes & R-PHRASE & motorbike taxi rider \\
-2 & , & SEP & Symbol &  & R-SEP &  \\
-3 & carry & VERB & English &  & R-VOCAB &  \\
-4 & me & PRON & English &  & R-VOCAB &  \\
-5 & go & PREP & Pidgin &  & R-VOCAB & directional marker in serial verb constructions: carry me go Mokolo \\
-6 & Mokolo & NOUN & ProperName &  & R-VOCAB & Yaounde neighbourhood or landmark \\
-7 & sharp sharp & ADV & Pidgin & yes & R-PHRASE & immediately \\
-8 & . & TERM & Symbol &  & R-TERM &  \\
-\multicolumn{7}{@{}l@{}}{\rule{0pt}{2.6ex}\textbf{S14} Chef, bring your carte nationale! \textit{(ACCEPTED)}} \\
-1 & Chef & VOC & French &  & R-VOCAB & boss, sir \\
-2 & , & SEP & Symbol &  & R-SEP &  \\
-3 & bring & VERB & English &  & R-VOCAB &  \\
-4 & your & DET & English &  & R-VOCAB &  \\
-5 & carte nationale & NOUN & French &  & R-PHRASE & national identity card \\
-6 & ! & TERM & Symbol &  & R-TERM &  \\
-\multicolumn{7}{@{}l@{}}{\rule{0pt}{2.6ex}\textbf{S15} Mola, the prof don drop resultats for lundi. \textit{(ACCEPTED)}} \\
-1 & Mola & VOC & Camfranglais & yes & R-VOCAB & Camfranglais address term: my friend, mate \\
-2 & , & SEP & Symbol &  & R-SEP &  \\
-3 & the & DET & English &  & R-VOCAB &  \\
-4 & prof & NOUN & French &  & R-VOCAB &  \\
-5 & don & AUX & Pidgin &  & R-VOCAB & perfective / progressive aspect marker \\
-6 & drop & VERB & English &  & R-VOCAB &  \\
-7 & resultats & NOUN & French &  & R-VOCAB &  \\
-8 & for & PREP & English &  & R-VOCAB &  \\
-9 & lundi & NOUN & French &  & R-VOCAB &  \\
-10 & . & TERM & Symbol &  & R-TERM &  \\
+\multicolumn{4}{@{}l@{}}{\rule{0pt}{2.6ex}\textbf{S01} Chef, drop me for Carrefour Obili. \textit{(ACCEPTED)}} \\
+1 & Chef & VOC & R-VOCAB \\
+2 & , & SEP & R-SEP \\
+3 & drop & VERB & R-VOCAB \\
+4 & me & PRON & R-VOCAB \\
+5 & for & PREP & R-VOCAB \\
+6 & Carrefour & NOUN & R-VOCAB \\
+7 & Obili & NOUN & R-VOCAB \\
+8 & . & TERM & R-TERM \\
+\multicolumn{4}{@{}l@{}}{\rule{0pt}{2.6ex}\textbf{S02} Patron, deux cents na for Mvan? \textit{(ACCEPTED)}} \\
+1 & Patron & VOC & R-VOCAB \\
+2 & , & SEP & R-SEP \\
+3 & deux cents & NUM & R-PHRASE \\
+4 & na & COP & R-VOCAB \\
+5 & for & PREP & R-VOCAB \\
+6 & Mvan & NOUN & R-VOCAB \\
+7 & ? & TERM & R-TERM \\
+\multicolumn{4}{@{}l@{}}{\rule{0pt}{2.6ex}\textbf{S03} Hmmm, chef, this road don cut, pay cinq cents. \textit{(ACCEPTED)}} \\
+1 & Hmmm & INTERJ & R-VOCAB \\
+2 & , & SEP & R-SEP \\
+3 & chef & VOC & R-VOCAB \\
+4 & , & SEP & R-SEP \\
+5 & this & DET & R-VOCAB \\
+6 & road & NOUN & R-VOCAB \\
+7 & don & AUX & R-VOCAB \\
+8 & cut & VERB & R-VOCAB \\
+9 & , & SEP & R-SEP \\
+10 & pay & VERB & R-VOCAB \\
+11 & cinq cents & NUM & R-PHRASE \\
+12 & . & TERM & R-TERM \\
+\multicolumn{4}{@{}l@{}}{\rule{0pt}{2.6ex}\textbf{S04} Ekiee, this MTN reseau dey small small today. \textit{(ACCEPTED)}} \\
+1 & Ekiee & INTERJ & R-VOCAB \\
+2 & , & SEP & R-SEP \\
+3 & this & DET & R-VOCAB \\
+4 & MTN & NOUN & R-VOCAB \\
+5 & reseau & NOUN & R-VOCAB \\
+6 & dey & AUX & R-VOCAB \\
+7 & small small & ADV & R-PHRASE \\
+8 & today & ADV & R-VOCAB \\
+9 & . & TERM & R-TERM \\
+\multicolumn{4}{@{}l@{}}{\rule{0pt}{2.6ex}\textbf{S05} Je wanda, my forfait don finish! \textit{(ACCEPTED)}} \\
+1 & Je wanda & INTERJ & R-PHRASE \\
+2 & , & SEP & R-SEP \\
+3 & my & DET & R-VOCAB \\
+4 & forfait & NOUN & R-VOCAB \\
+5 & don & AUX & R-VOCAB \\
+6 & finish & VERB & R-VOCAB \\
+7 & ! & TERM & R-TERM \\
+\multicolumn{4}{@{}l@{}}{\rule{0pt}{2.6ex}\textbf{S06} Garrr, ENEO don cut courant since ce matin. \textit{(ACCEPTED)}} \\
+1 & Garrr & INTERJ & R-VOCAB \\
+2 & , & SEP & R-SEP \\
+3 & ENEO & NOUN & R-VOCAB \\
+4 & don & AUX & R-VOCAB \\
+5 & cut & VERB & R-VOCAB \\
+6 & courant & NOUN & R-VOCAB \\
+7 & since & PREP & R-VOCAB \\
+8 & ce matin & NOUN & R-PHRASE \\
+9 & . & TERM & R-TERM \\
+\multicolumn{4}{@{}l@{}}{\rule{0pt}{2.6ex}\textbf{S07} Courant no dey, we dey wait la nuit. \textit{(ACCEPTED)}} \\
+1 & Courant & NOUN & R-VOCAB \\
+2 & no & NEG & R-VOCAB \\
+3 & dey & AUX & R-VOCAB \\
+4 & , & SEP & R-SEP \\
+5 & we & PRON & R-VOCAB \\
+6 & dey & AUX & R-VOCAB \\
+7 & wait & VERB & R-VOCAB \\
+8 & la nuit & NOUN & R-PHRASE \\
+9 & . & TERM & R-TERM \\
+\multicolumn{4}{@{}l@{}}{\rule{0pt}{2.6ex}\textbf{S08} Mami, reduce this tomate small, na trop cher. \textit{(ACCEPTED)}} \\
+1 & Mami & VOC & R-VOCAB \\
+2 & , & SEP & R-SEP \\
+3 & reduce & VERB & R-VOCAB \\
+4 & this & DET & R-VOCAB \\
+5 & tomate & NOUN & R-VOCAB \\
+6 & small & ADJ & R-VOCAB \\
+7 & , & SEP & R-SEP \\
+8 & na & COP & R-VOCAB \\
+9 & trop & ADV & R-VOCAB \\
+10 & cher & ADJ & R-VOCAB \\
+11 & . & TERM & R-TERM \\
+\multicolumn{4}{@{}l@{}}{\rule{0pt}{2.6ex}\textbf{S09} Mbom, deux mille na last price o. \textit{(ACCEPTED)}} \\
+1 & Mbom & VOC & R-VOCAB \\
+2 & , & SEP & R-SEP \\
+3 & deux mille & NUM & R-PHRASE \\
+4 & na & COP & R-VOCAB \\
+5 & last & ADJ & R-VOCAB \\
+6 & price & NOUN & R-VOCAB \\
+7 & o & PART & R-VOCAB \\
+8 & . & TERM & R-TERM \\
+\multicolumn{4}{@{}l@{}}{\rule{0pt}{2.6ex}\textbf{S10} Weh, rain don beat we for Damas. \textit{(ACCEPTED)}} \\
+1 & Weh & INTERJ & R-VOCAB \\
+2 & , & SEP & R-SEP \\
+3 & rain & NOUN & R-VOCAB \\
+4 & don & AUX & R-VOCAB \\
+5 & beat & VERB & R-VOCAB \\
+6 & we & PRON & R-VOCAB \\
+7 & for & PREP & R-VOCAB \\
+8 & Damas & NOUN & R-VOCAB \\
+9 & . & TERM & R-TERM \\
+\multicolumn{4}{@{}l@{}}{\rule{0pt}{2.6ex}\textbf{S11} This boue dey full the chemin, taxi no dey come. \textit{(ACCEPTED)}} \\
+1 & This & DET & R-VOCAB \\
+2 & boue & NOUN & R-VOCAB \\
+3 & dey & AUX & R-VOCAB \\
+4 & full & ADJ & R-VOCAB \\
+5 & the & DET & R-VOCAB \\
+6 & chemin & NOUN & R-VOCAB \\
+7 & , & SEP & R-SEP \\
+8 & taxi & NOUN & R-VOCAB \\
+9 & no & NEG & R-VOCAB \\
+10 & dey & AUX & R-VOCAB \\
+11 & come & VERB & R-VOCAB \\
+12 & . & TERM & R-TERM \\
+\multicolumn{4}{@{}l@{}}{\rule{0pt}{2.6ex}\textbf{S12} Hmmm, queue for station dey long trop. \textit{(ACCEPTED)}} \\
+1 & Hmmm & INTERJ & R-VOCAB \\
+2 & , & SEP & R-SEP \\
+3 & queue & NOUN & R-VOCAB \\
+4 & for & PREP & R-VOCAB \\
+5 & station & NOUN & R-VOCAB \\
+6 & dey & AUX & R-VOCAB \\
+7 & long & ADJ & R-VOCAB \\
+8 & trop & ADV & R-VOCAB \\
+9 & . & TERM & R-TERM \\
+\multicolumn{4}{@{}l@{}}{\rule{0pt}{2.6ex}\textbf{S13} Bendskin man, carry me go Mokolo sharp sharp. \textit{(ACCEPTED)}} \\
+1 & Bendskin man & VOC & R-PHRASE \\
+2 & , & SEP & R-SEP \\
+3 & carry & VERB & R-VOCAB \\
+4 & me & PRON & R-VOCAB \\
+5 & go & PREP & R-VOCAB \\
+6 & Mokolo & NOUN & R-VOCAB \\
+7 & sharp sharp & ADV & R-PHRASE \\
+8 & . & TERM & R-TERM \\
+\multicolumn{4}{@{}l@{}}{\rule{0pt}{2.6ex}\textbf{S14} Chef, bring your carte nationale! \textit{(ACCEPTED)}} \\
+1 & Chef & VOC & R-VOCAB \\
+2 & , & SEP & R-SEP \\
+3 & bring & VERB & R-VOCAB \\
+4 & your & DET & R-VOCAB \\
+5 & carte nationale & NOUN & R-PHRASE \\
+6 & ! & TERM & R-TERM \\
+\multicolumn{4}{@{}l@{}}{\rule{0pt}{2.6ex}\textbf{S15} Mola, the prof don drop resultats for lundi. \textit{(ACCEPTED)}} \\
+1 & Mola & VOC & R-VOCAB \\
+2 & , & SEP & R-SEP \\
+3 & the & DET & R-VOCAB \\
+4 & prof & NOUN & R-VOCAB \\
+5 & don & AUX & R-VOCAB \\
+6 & drop & VERB & R-VOCAB \\
+7 & resultats & NOUN & R-VOCAB \\
+8 & for & PREP & R-VOCAB \\
+9 & lundi & NOUN & R-VOCAB \\
+10 & . & TERM & R-TERM \\
 \end{longtable}
 \endgroup
 
+Language, slang status and gloss are properties of the lexical item rather than of the occurrence, so they are given once each in Section~\ref{sec:the-complete-lexical-inventory-of-the-corpus} instead of being repeated here for every repetition of a word.
+
 \subsection{The resulting token streams}
+\begin{figure}[!htbp]
+\centering
+\shotimg{tokens-panel.png}{0.55}{0.42}
+\caption{The token stream for one statement as the analyzer displays it. Each lexeme carries its token type, the rule that matched it and its source language; unrecognised input would appear here as UNKNOWN rather than being dropped.}
+\label{fig:tokens-panel}
+\end{figure}
+
 \begingroup
 \scriptsize
 \rowcolors{1}{}{zebra}
@@ -749,51 +1001,111 @@ S15 & \texttt{VOC SEP DET NOUN AUX VERB NOUN PREP NOUN TERM \$} \\
 \endgroup
 
 \section{The complete lexical inventory of the corpus}
-Collapsing the 134 tokens of Section 8 by token type and folded form leaves 76 distinct lexical items. This is the vocabulary the corpus actually exercises, as opposed to the vocabulary the specification declares, and the difference between the two is a measure of how much of the specification is currently evidenced by data.
+\label{sec:the-complete-lexical-inventory-of-the-corpus}
+Collapsing the 134 tokens of Section~\ref{sec:token-tables-statement-by-statement} by token type and folded form leaves 76 distinct lexical items. This is the vocabulary the corpus actually exercises, as opposed to the vocabulary the specification declares, and the difference between the two is a measure of how much of the specification is currently evidenced by data.
 
 \begingroup
-\footnotesize
+\scriptsize
 \rowcolors{1}{}{zebra}
-\begin{longtable}{L{0.10} L{0.06} L{0.64}}
-\caption{Every distinct lexical item attested in the corpus, grouped by token type.}\\
+\begin{longtable}{L{0.16} L{0.09} L{0.13} L{0.05} L{0.34}}
+\caption{Every distinct lexical item attested in the corpus, with its gloss and source language.}\\
 \toprule
-\rowcolor{headfill}\textbf{\color{ink}Token} & \textbf{\color{ink}Count} & \textbf{\color{ink}Attested lexical items} \\
+\rowcolor{headfill}\textbf{\color{ink}Lexeme} & \textbf{\color{ink}Token} & \textbf{\color{ink}Language} & \textbf{\color{ink}Slang} & \textbf{\color{ink}Gloss} \\
 \midrule
 \endfirsthead
-\caption[]{Every distinct lexical item attested in the corpus, grouped by token type. \textit{(continued)}}\\
+\caption[]{Every distinct lexical item attested in the corpus, with its gloss and source language. \textit{(continued)}}\\
 \toprule
-\rowcolor{headfill}\textbf{\color{ink}Token} & \textbf{\color{ink}Count} & \textbf{\color{ink}Attested lexical items} \\
+\rowcolor{headfill}\textbf{\color{ink}Lexeme} & \textbf{\color{ink}Token} & \textbf{\color{ink}Language} & \textbf{\color{ink}Slang} & \textbf{\color{ink}Gloss} \\
 \midrule
 \endhead
 \midrule
-\multicolumn{3}{r}{\footnotesize\textit{\color{slate}continued on the next page}}\\
+\multicolumn{5}{r}{\footnotesize\textit{\color{slate}continued on the next page}}\\
 \endfoot
 \bottomrule
 \endlastfoot
-ADJ & 5 & cher, full, last, long, small \\
-ADV & 4 & sharp sharp, small small, today, trop \\
-AUX & 2 & dey, don \\
-COP & 1 & na \\
-DET & 4 & my, the, this, your \\
-INTERJ & 5 & ekiee, garrr, hmmm, je wanda, weh \\
-NEG & 1 & no \\
-NOUN & 25 & boue, carrefour, carte nationale, ce matin, chemin, courant, damas, eneo, forfait, la nuit, lundi, mokolo, mtn, mvan, obili, price, prof, queue, rain, reseau, resultats, road, station, taxi, tomate \\
-NUM & 3 & cinq cents, deux cents, deux mille \\
-PART & 1 & o \\
-PREP & 3 & for, go, since \\
-PRON & 2 & me, we \\
-SEP & 1 & , \\
-TERM & 3 & !, ., ? \\
-VERB & 10 & beat, bring, carry, come, cut, drop, finish, pay, reduce, wait \\
-VOC & 6 & bendskin man, chef, mami, mbom, mola, patron \\
+cher & ADJ & French &  &  \\
+full & ADJ & English &  &  \\
+last & ADJ & English &  &  \\
+long & ADJ & English &  &  \\
+small & ADJ & Pidgin &  & small, a little \\
+sharp sharp & ADV & Pidgin & yes & immediately \\
+small small & ADV & Pidgin &  & little by little, intermittently \\
+today & ADV & English &  &  \\
+trop & ADV & French &  &  \\
+dey & AUX & Pidgin &  & perfective / progressive aspect marker \\
+don & AUX & Pidgin &  & perfective / progressive aspect marker \\
+na & COP & Pidgin &  & equative copula: it is \\
+my & DET & English &  &  \\
+the & DET & English &  &  \\
+this & DET & English &  &  \\
+your & DET & English &  &  \\
+ekiee & INTERJ & Ewondo & yes & Ewondo cry of shock or dismay \\
+garrr & INTERJ & Camfranglais & yes & emphatic street exclamation \\
+hmmm & INTERJ & Pidgin & yes & hesitation or exasperation cry \\
+je wanda & INTERJ & Pidgin/French & yes & I am amazed / unbelievable \\
+weh & INTERJ & Pidgin & yes & cry of pity \\
+no & NEG & English &  &  \\
+boue & NOUN & French &  &  \\
+carrefour & NOUN & French &  &  \\
+carte nationale & NOUN & French &  & national identity card \\
+ce matin & NOUN & French &  & this morning \\
+chemin & NOUN & French &  &  \\
+courant & NOUN & French &  &  \\
+damas & NOUN & ProperName &  & Yaounde neighbourhood or landmark \\
+eneo & NOUN & ProperName &  & utility or telecom operator \\
+forfait & NOUN & French &  &  \\
+la nuit & NOUN & French &  & the night \\
+lundi & NOUN & French &  &  \\
+mokolo & NOUN & ProperName &  & Yaounde neighbourhood or landmark \\
+mtn & NOUN & ProperName &  & utility or telecom operator \\
+mvan & NOUN & ProperName &  & Yaounde neighbourhood or landmark \\
+obili & NOUN & ProperName &  & Yaounde neighbourhood or landmark \\
+price & NOUN & English &  &  \\
+prof & NOUN & French &  &  \\
+queue & NOUN & English &  &  \\
+rain & NOUN & English &  &  \\
+reseau & NOUN & French &  &  \\
+resultats & NOUN & French &  &  \\
+road & NOUN & English &  &  \\
+station & NOUN & French &  &  \\
+taxi & NOUN & English &  &  \\
+tomate & NOUN & French &  &  \\
+cinq cents & NUM & French &  & five hundred francs \\
+deux cents & NUM & French &  & two hundred francs \\
+deux mille & NUM & French &  & two thousand francs \\
+o & PART & Pidgin &  & emphatic final particle \\
+for & PREP & English &  &  \\
+go & PREP & Pidgin &  & directional marker in serial verb constructions: carry me go Mokolo \\
+since & PREP & English &  &  \\
+me & PRON & English &  &  \\
+we & PRON & English &  &  \\
+, & SEP & Symbol &  &  \\
+! & TERM & Symbol &  &  \\
+. & TERM & Symbol &  &  \\
+? & TERM & Symbol &  &  \\
+beat & VERB & English &  &  \\
+bring & VERB & English &  &  \\
+carry & VERB & English &  &  \\
+come & VERB & English &  &  \\
+cut & VERB & English &  &  \\
+drop & VERB & English &  &  \\
+finish & VERB & English &  &  \\
+pay & VERB & English &  &  \\
+reduce & VERB & English &  &  \\
+wait & VERB & English &  &  \\
+bendskin man & VOC & Pidgin/French & yes & motorbike taxi rider \\
+chef & VOC & French &  & boss, sir \\
+mami & VOC & Pidgin &  & market woman, mother \\
+mbom & VOC & Camfranglais & yes & Camfranglais address term: my friend, mate \\
+mola & VOC & Camfranglais & yes & Camfranglais address term: my friend, mate \\
+patron & VOC & French &  & boss, sir \\
 \end{longtable}
 \endgroup
-
-Glosses and source languages for each of these appear in Section 8, where every occurrence is listed with its statement.
 
 The specification declares 330 entries and the corpus exercises 76 of them, or 23.0\%. The remainder were added during development because they are common in the register, but they are not attested in this corpus. They are honest coverage rather than evidence, and a larger corpus would be needed to justify them.
 
 \section{Token frequency and variation}
+\label{sec:token-frequency-and-variation}
 The corpus yields 134 tokens over 76 distinct lexical items, a type/token ratio of 0.57.
 
 \subsection{Frequency by token type}
@@ -967,6 +1279,7 @@ mola & 1 \\
 \endgroup
 
 \section{Code-mixing analysis}
+\label{sec:code-mixing-analysis}
 \subsection{Tokens by source language}
 \begingroup
 \small
@@ -1040,6 +1353,7 @@ S15 & Camfranglais, English, French, Pidgin \\
 15 of 15 statements draw on more than one language.
 
 \section{Syntactic analysis: the grammar}
+\label{sec:syntactic-analysis-the-grammar}
 The grammar describes the shape of the utterances in the corpus. Read informally, a statement is an optional run of openers (interjections and address terms), then one or more clauses separated by commas, then a terminator:
 
 
@@ -1143,7 +1457,7 @@ Core & The verb together with what follows it. \\
 Items & A sequence of post-verbal or post-copular constituents. \\
 Item & One such constituent: a noun phrase, a prepositional phrase, an adverbial or a numeral. \\
 NP & A noun phrase: optional determiner, noun group, optional particle. \\
-NGopt & The optional continuation of a noun compound; the source of the documented conflict in Section 18. \\
+NGopt & The optional continuation of a noun compound; the source of the documented conflict in Section~\ref{sec:conflicts-and-how-they-are-resolved}. \\
 PP & A preposition followed by a noun phrase. \\
 Clause\_f & Generated by left factoring; decides between the verbal and the copular predicate once the shared subject has been parsed. \\
 \end{longtable}
@@ -1161,6 +1475,7 @@ Noun compounding is unbounded. Sequences such as ``carrefour Obili'' and ``bends
 Clause structure is flat on purpose. Items makes no distinction between an argument and an adjunct. The distinction is real, but recovering it requires knowing what the verb means, which is semantic analysis and out of scope.
 
 \section{Removing left recursion}
+\label{sec:removing-left-recursion}
 A production of the form A -> A alpha, alternating with A -> beta, causes a predictive parser to expand A into A forever without consuming input. It is removed by rewriting the pair as A -> beta A-prime together with A-prime -> alpha A-prime, alternating with the empty production. The rewritten grammar generates the same language while consuming beta before recursing.
 
 ClauseList: immediate left recursion on ClauseList, introduced ClauseList'.
@@ -1194,6 +1509,7 @@ NGopt       -> NOUN NGopt | \eps{}
 PP          -> PREP NP
 \end{Verbatim}
 \section{Left factoring}
+\label{sec:left-factoring}
 When two productions of the same nonterminal begin with the same symbols, one token of lookahead cannot tell them apart. The common prefix is factored out into a single production and the differing tails move into a new nonterminal, which defers the decision until the parser has read enough to make it.
 
 Clause: common prefix 'Subj', introduced Clause\_f.
@@ -1271,6 +1587,7 @@ Clause_f    -> VP | COP Items
 38. Clause_f -> COP Items
 \end{Verbatim}
 \section{FIRST and FOLLOW sets}
+\label{sec:first-and-follow-sets}
 FIRST of a symbol X is the set of terminals that can begin a string derived from X, plus the empty production if X can derive it. FOLLOW of a nonterminal A is the set of terminals that can appear immediately after A in some derivation, with the dollar sign marking end of input. Both are computed by fixed-point iteration; the sets below are that computed result, not a transcription.
 
 \begingroup
@@ -1322,7 +1639,7 @@ FIRST(Statement). The start symbol expands to Preamble followed by ClauseList an
 FIRST(Statement) = ( AUX, COP, DET, INTERJ, NEG, NOUN, NUM, PRON,
                     VERB, VOC )
 \end{Verbatim}
-FOLLOW(NGopt). NGopt is the tail of a noun compound. It appears at the end of NP, so whatever can follow an NP can follow NGopt: a particle, a comma, a terminator, the start of the next Item, and so on. Because NGopt can itself derive the empty string, this set is also exactly the set of lookaheads on which the parser must choose to stop compounding --- which is why the conflict discussed in Section 18 arises precisely here:
+FOLLOW(NGopt). NGopt is the tail of a noun compound. It appears at the end of NP, so whatever can follow an NP can follow NGopt: a particle, a comma, a terminator, the start of the next Item, and so on. Because NGopt can itself derive the empty string, this set is also exactly the set of lookaheads on which the parser must choose to stop compounding --- which is why the conflict discussed in Section~\ref{sec:conflicts-and-how-they-are-resolved} arises precisely here:
 
 \begin{Verbatim}[commandchars=\\\{\},fontsize=\small,formatcom=\vbfmt,frame=leftline,framerule=1.2pt,rulecolor=\color{clay!55},framesep=6pt,xleftmargin=10pt,xrightmargin=4pt]
 FOLLOW(NGopt) = ( ADJ, ADV, AUX, COP, DET, NEG, NOUN, NUM, PART,
@@ -1334,9 +1651,17 @@ Both sets are computed by repeated passes over the productions until nothing cha
 9 of the 18 nonterminals can derive the empty string: Preamble, SepOpt, ClauseList', Subj, SubjPP, AuxSeq, Core, Items, NGopt. Each corresponds to something genuinely optional in the register --- an absent subject, a missing determiner, a clause with no opener --- and each is a place where the parser must decide to expand or to skip on one token of lookahead.
 
 \section{The LL(1) parsing table}
+\label{sec:the-ll-1-parsing-table}
 For each production A -> alpha, the entry M[A, a] is set to that production for every terminal a in FIRST of alpha; and if alpha can derive the empty string, for every terminal in FOLLOW of A as well. An empty cell is a parse error.
 
-The table is given as a grid, split into blocks of columns so that it fits the page. A dash marks an empty cell; the other entries are the production numbers assigned in Section 14.
+The table is given as a grid, split into blocks of columns so that it fits the page. A dash marks an empty cell; the other entries are the production numbers assigned in Section~\ref{sec:left-factoring}.
+
+\begin{figure}[!htbp]
+\centering
+\shotimg{trace-accepted.png}{0.55}{0.42}
+\caption{The table above, in use. At each step the stack top and the one-token lookahead select a cell, and the production found there is pushed in reverse. The trace is produced by the parser itself, so it is the same table being read here that is printed below.}
+\label{fig:trace-accepted}
+\end{figure}
 
 \begingroup
 \footnotesize
@@ -1418,21 +1743,121 @@ Clause\_f & --- & --- & --- & --- & --- & 37 & --- & --- \\
 \end{longtable}
 \endgroup
 
-The table has 18 rows and 17 columns, so 306 cells, of which 131 are filled --- 42.8\%. The sparsity is expected and is what makes the parser's error messages useful: an empty cell is not merely a failure, it is a statement about which terminals would have been acceptable instead, and that is the set reported in Section 20.
+The table has 18 rows and 17 columns, so 306 cells, of which 131 are filled --- 42.8\%. The sparsity is expected and is what makes the parser's error messages useful: an empty cell is not merely a failure, it is a statement about which terminals would have been acceptable instead, and that is the set reported in Section~\ref{sec:test-results-accepted-and-rejected-sentences}.
 
 \section{Conflicts and how they are resolved}
+\label{sec:conflicts-and-how-they-are-resolved}
 Constructing the table produced 1 conflict. A conflict means two productions compete for one cell, so one token of lookahead does not determine the parser's next move. Each is stated below with the decision taken.
 
 \textbf{M[NGopt, NOUN] already holds NGopt -> NOUN NGopt; cannot also add NGopt -> \eps{}}
 
 Noun-compounding ambiguity. After a noun phrase, a following NOUN could extend that phrase (Carrefour Obili as one place name) or start a new argument. The grammar is ambiguous here, exactly like the dangling-else. It is resolved in favour of the first production, NGopt -> NOUN NGopt, i.e. greedy longest-match compounding, which is the correct reading for every compound in the corpus.
 
+\begin{figure}[!htbp]
+\centering
+\shotimg{sets-panel.png}{0.55}{0.42}
+\caption{The sets the conflict is born from. FIRST and FOLLOW are computed from the grammar at run time rather than transcribed, and it is their overlap at NGopt that puts two productions in one cell.}
+\label{fig:sets-panel}
+\end{figure}
+
 1 conflict in total, of which 0 remain unreviewed.
 
 It is worth being precise about what this means. The grammar is not strictly LL(1): a grammar with any conflict fails that definition. What we have is an LL(1) table with one ambiguous cell resolved by a stated rule, in exactly the way the dangling-else ambiguity is conventionally resolved in favour of the nearest if. The resolution is deterministic and it is correct for every compound in the corpus, but it is a choice we made, not a property the grammar gave us.
 
 \section{The parser}
+\label{sec:the-parser}
 The parser is a table-driven predictive parser. It maintains a stack initialised with the end marker and the start symbol, and repeats: if the top of the stack is a terminal it must equal the lookahead, and both are consumed; if it is a nonterminal, the cell M[top, lookahead] supplies the production, whose right-hand side is pushed in reverse order. Input is accepted only when the stack has emptied down to the end marker and the lookahead is also the end marker, so trailing tokens cannot be ignored.
+
+\begin{figure}[!htbp]
+\centering
+\begin{tikzpicture}[
+  scale=0.95, transform shape,
+  font=\small,
+  >={Stealth[length=2.2mm,width=1.7mm]},
+  state/.style={draw=ink, fill=white, line width=0.9pt,
+                circle, minimum size=10mm, inner sep=0.3mm,
+                align=center, font=\scriptsize\bfseries},
+  probe/.style={draw=moss, fill=moss!8, line width=0.9pt,
+                rounded corners=2.5pt, align=center,
+                font=\scriptsize, inner sep=1.5mm},
+  final/.style={draw=clay, fill=clay!10, line width=1pt,
+                rounded corners=2.5pt, align=center,
+                font=\scriptsize\bfseries, inner sep=1.5mm},
+  box/.style={draw=rule, fill=parchment, line width=0.7pt,
+              rounded corners=1.5pt, align=center,
+              font=\scriptsize\ttfamily, inner sep=1.3mm},
+  cell/.style={draw=rule, fill=white, line width=0.6pt,
+               minimum width=9mm, minimum height=5mm,
+               font=\tiny\ttfamily, inner sep=0.5mm},
+  live/.style={draw=slate, fill=slate!8, line width=1pt,
+               rounded corners=2.5pt, align=center,
+               font=\scriptsize, inner sep=1.6mm},
+  dead/.style={draw=rule, fill=white, line width=0.7pt,
+               rounded corners=2.5pt, align=center,
+               font=\scriptsize, inner sep=1.6mm,
+               dash pattern=on 2pt off 1.6pt, text=slate!60},
+  flow/.style={->, line width=0.9pt, draw=ink!75},
+  back/.style={->, line width=0.7pt, draw=slate!70,
+               dash pattern=on 2pt off 1.6pt},
+  feed/.style={->, line width=0.7pt, draw=clay!80,
+               dash pattern=on 2pt off 1.6pt},
+  lab/.style={font=\tiny, inner sep=0.6mm, fill=white,
+              text=ink!85, align=center},
+  note/.style={font=\tiny\itshape, text=slate, align=center},
+]
+\node[note] at (3.4,0.75) {input, read once from left to right};
+
+\node[box] (t1) at (0.00,0) {VOC};
+\node[box] (t2) at (0.97,0) {SEP};
+\node[box] (t3) at (1.94,0) {VERB};
+\node[box, draw=clay, fill=clay!12, line width=1pt] (t4) at (2.91,0) {PRON};
+\node[box] (t5) at (3.88,0) {PREP};
+\node[box] (t6) at (4.85,0) {NOUN};
+\node[box] (t7) at (5.82,0) {TERM};
+\node[box] (t8) at (6.79,0) {\textdollar};
+
+\node[note, text=clay] at (2.91,-0.52) {lookahead};
+
+\node[live, text width=34mm] (ctrl) at (3.4,-2.9)
+  {\textbf{the driver}\\[1pt]
+   two actions only: pop and match a\\ terminal, or pop a nonterminal and\\
+   push the right-hand side};
+
+\node[box, text width=19mm, inner sep=1.5mm] (stk) at (0.4,-2.9)
+  {Items\\ ClauseTail\\ Clause\\ \textdollar};
+\node[note] at (0.4,-1.72) {stack, top first};
+
+\node[cell] (m11) at (7.10,-2.35) {Clause};
+\node[cell] (m12) at (8.00,-2.35) {--};
+\node[cell] (m13) at (8.90,-2.35) {Items};
+\node[cell] (m21) at (7.10,-2.85) {--};
+\node[cell] (m22) at (8.00,-2.85) {Tail};
+\node[cell] (m23) at (8.90,-2.85) {--};
+\node[cell] (m31) at (7.10,-3.35) {Opener};
+\node[cell] (m32) at (8.00,-3.35) {--};
+\node[cell] (m33) at (8.90,-3.35) {--};
+\node[note] at (8.00,-1.72) {the table M[A, a]};
+
+\node[final, text width=20mm] (acc) at (5.2,-5.4) {ACCEPTED};
+\node[final, text width=20mm] (rej) at (1.6,-5.4) {REJECTED};
+
+\draw[flow] (t4.south) -- (2.91,-1.05) -- (3.4,-1.05) -- (ctrl.north);
+\draw[flow] (stk.east) -- (ctrl.west);
+\draw[feed] (m21.west) -- node[lab, above] {which production} (ctrl.east);
+
+\draw[flow] (ctrl.south east) -- node[lab, sloped, above, text width=23mm]
+  {stack and input empty together} (acc.north);
+\draw[flow] (ctrl.south west) -- node[lab, sloped, above, text width=21mm]
+  {empty cell, or a mismatch} (rej.north);
+
+\node[note, text width=74mm] at (4.2,-6.5)
+  {Every step is recorded, so a rejection is justified with the exact stack,
+   the lookahead and the table cell that was empty, rather than merely
+   announced.};
+\end{tikzpicture}
+\caption{The parser as a stack machine. One token of lookahead, one stack, and a table that chooses the production: the code contains no grammar-specific decision at all. Acceptance is a joint condition, which is what prevents trailing input from being ignored.}
+\label{fig:parser-machine}
+\end{figure}
 
 Two behaviours are worth noting.
 
@@ -1441,7 +1866,70 @@ Two behaviours are worth noting.
 \item Rejections are explained, not merely announced. On failure the parser reports the offending token with its line and column, and the set of terminals the table would have accepted in that position.
 \end{itemize}
 
+\begin{figure}[!htbp]
+\centering
+\shotimg{conflict-panel.png}{0.55}{0.42}
+\caption{The analyzer presents the documented conflict as a decision rather than a failure: the rule taken, the rule declined, and the justification. An unreviewed conflict would be badged differently, so the distinction is visible in the software and not only in this report.}
+\label{fig:conflict-panel}
+\end{figure}
+
+\section{Error reporting and correction}
+\label{sec:error-reporting-and-correction}
+A compiler that says only ``syntax error'' is a poor compiler, and the same is true of an analyzer over speech. Rejection is where this system has to do its most useful work, because a rejected transcription is far more often a transcription problem than a genuine statement outside the language. The analyzer therefore answers every rejection with a diagnosis and, where the evidence supports one, a proposed correction.
+
+The two kinds of failure are answered differently, which is the point of separating them in the first place. A lexical failure names a lexeme that is not in the specification, so the useful answer is a spelling. A syntactic failure means every word was recognised but the order is not generated by the grammar, so the useful answer is the set of terminals the table would have accepted, with an example of each drawn from the declared vocabulary.
+
+\subsection{Finding the intended spelling}
+Ranking candidate spellings by edit distance alone is not good enough here, because the disagreements in this material are not random typing slips. They are disagreements about how to write a sound that has no settled orthography. Three measures are therefore combined, and each contributes for a stated reason.
+
+\begingroup
+\small
+\rowcolors{1}{}{zebra}
+\begin{longtable}{L{0.21} L{0.55}}
+\caption{The three signals combined when ranking a replacement.}\\
+\toprule
+\rowcolor{headfill}\textbf{\color{ink}Measure} & \textbf{\color{ink}What it is for} \\
+\midrule
+\endfirsthead
+\caption[]{The three signals combined when ranking a replacement. \textit{(continued)}}\\
+\toprule
+\rowcolor{headfill}\textbf{\color{ink}Measure} & \textbf{\color{ink}What it is for} \\
+\midrule
+\endhead
+\midrule
+\multicolumn{2}{r}{\footnotesize\textit{\color{slate}continued on the next page}}\\
+\endfoot
+\bottomrule
+\endlastfoot
+Damerau-Levenshtein distance & The base score. Transpositions count as one edit rather than two, because a swapped pair of letters is a common slip and should not be penalised as heavily as two independent changes. \\
+Phonetic key & Collapses the consonant spellings transcribers genuinely disagree about: tch, ch and sh become one symbol, qu becomes k, ou becomes u, h is dropped. Two forms that sound alike score close together even when they look very different. \\
+Consonant skeleton & Vowels are the least stable part of an informal transcription, so two forms with the same consonants in the same order are treated as related. This is the weakest of the three signals and carries the smallest bonus. \\
+\end{longtable}
+\endgroup
+
+A bonus can only promote a candidate that was already plausible on letters alone. Without that floor, every short word would match every other short word through the phonetic key, and the ranking would become noise. A candidate is only used to rewrite a statement when it clears a confidence threshold; below it, candidates are listed for the reader to judge and no rewrite is offered.
+
+\subsection{Words written together}
+One class of error is answered without any scoring at all. Transcribers routinely attach a post-nominal particle to the word in front of it, writing quartierla for quartier la. Before ranking anything, the engine tries every way of cutting the unknown run in two and keeps a cut only when both halves are separately declared. That is a fact about the specification rather than a guess about intent, so where it applies it is preferred over the closest spelling.
+
+\subsection{A proposal that is checked, not asserted}
+When every unknown lexeme in a statement has a confident replacement, the engine splices those replacements back into the original transcription at the character offsets the lexer recorded, and then runs the result through the analyzer again. What the user is shown is therefore the outcome of an actual parse, not a claim that the correction would work. A proposal that still fails is reported as still failing, with its new reason, which is itself informative: it means the difficulty was never the spelling.
+
+This facility is reachable from all three front ends --- the Grammar tab of the browser and desktop applications, and the fix subcommand described in Section~\ref{sec:how-to-run-the-analyzer} --- because, like every other capability in this project, it is implemented once and shared rather than reimplemented per interface.
+
+\begin{Verbatim}[commandchars=\\\{\},fontsize=\small,formatcom=\vbfmt,frame=leftline,framerule=1.2pt,rulecolor=\color{clay!55},framesep=6pt,xleftmargin=10pt,xrightmargin=4pt]
+Rejected in the lexical phase: 2 lexemes outside the specification.
+  - "drapp" is not declared; the closest entry is "drop" (VERB) — same consonants, the vowels were written differently.
+      drop               VERB    0.75
+  - "quartierla" is two declared words written together; separate them as "quartier la".
+      quartier           NOUN    0.80
+  Proposed: "Chef, drop me for quartier la."
+  Re-analyzed: the proposal is accepted.
+\end{Verbatim}
+The output above is generated by running the engine while this report is written, so it is what the software actually produces rather than a transcript of an earlier session.
+
 \section{Test results: accepted and rejected sentences}
+\label{sec:test-results-accepted-and-rejected-sentences}
 \subsection{Corpus statements}
 \begingroup
 \footnotesize
@@ -1516,7 +2004,15 @@ N06 & . & terminator with no clause & REJECTED (syntax) & no rule for Statement 
 6 of 6 negative tests are correctly rejected.
 
 \section{Worked parse traces}
-The trace shows the parser's stack, the remaining input and the action taken at each step. One accepted statement is shown in full, followed by one rejection with the diagnosis the parser produced. Traces for the remaining statements are obtainable from the analyzer with the show command described in Section 26.
+\label{sec:worked-parse-traces}
+The trace shows the parser's stack, the remaining input and the action taken at each step. One accepted statement is shown in full, followed by one rejection with the diagnosis the parser produced. Traces for the remaining statements are obtainable from the analyzer with the show command described in Section~\ref{sec:how-to-run-the-analyzer}.
+
+\begin{figure}[!htbp]
+\centering
+\shotimg{trace-rejected.png}{0.55}{0.42}
+\caption{A rejection as the analyzer reports it: the offending token, its position, and the terminals the table would have accepted in that position instead. The accepted counterpart is shown in Section~\ref{sec:the-ll-1-parsing-table}.}
+\label{fig:trace-rejected}
+\end{figure}
 
 \subsection{Accepted: S01 --- Chef, drop me for Carrefour Obili.}
 Chosen because it exercises an opener, a vocative and a prepositional phrase.
@@ -1644,6 +2140,7 @@ Token stream: \texttt{PREP NOUN VERB PRON TERM \$}
 Parser diagnosis: no rule for Statement on PREP at line 1, column 1: 'for'; expected one of: AUX, COP, DET, INTERJ, NEG, NOUN, NUM, PRON, VERB, VOC
 
 \section{Leftmost derivations}
+\label{sec:leftmost-derivations}
 A predictive parser produces a leftmost derivation: at every step it expands the leftmost nonterminal of the sentential form. The derivations below are recovered from the parse trees of the previous section, so they are the derivations the parser actually performed. The empty production is applied silently --- where a nonterminal derives nothing, it simply disappears from the next line.
 
 \subsection{S01 --- Chef, drop me for Carrefour Obili.}
@@ -1674,7 +2171,8 @@ Statement
 21 derivation steps, ending in the token string the lexer produced.
 
 \section{A further parse tree}
-One more tree, for a statement with a different shape from the one traced above. A leaf labelled with a quoted lexeme is a matched terminal; a bare epsilon is an empty production. Trees for the remaining statements are obtainable from the analyzer with the show command described in Section 25.
+\label{sec:a-further-parse-tree}
+One more tree, for a statement with a different shape from the one traced above. A leaf labelled with a quoted lexeme is a matched terminal; a bare epsilon is an empty production. Trees for the remaining statements are obtainable from the analyzer with the show command described in Section~\ref{sec:how-to-run-the-analyzer}.
 
 \subsection{S02 --- Patron, deux cents na for Mvan?}
 \begin{Verbatim}[commandchars=\\\{\},fontsize=\small,formatcom=\vbfmt,frame=leftline,framerule=1.2pt,rulecolor=\color{clay!55},framesep=6pt,xleftmargin=10pt,xrightmargin=4pt]
@@ -1711,7 +2209,15 @@ Statement
 |       `-- \eps{}
 `-- TERM "?"
 \end{Verbatim}
+\begin{figure}[!htbp]
+\centering
+\shotimg{tree-panel.png}{0.43}{0.42}\hspace{0.02\linewidth}\shotimg{derivation-panel.png}{0.43}{0.42}
+\caption{Left: the parse tree as the analyzer draws it. Right: the leftmost derivation recovered from that same tree, so the two are guaranteed to describe one parse rather than two independent accounts of it.}
+\label{fig:tree-panel-pair}
+\end{figure}
+
 \section{Comparison with a programming-language compiler}
+\label{sec:comparison-with-a-programming-language-compiler}
 The techniques used here were designed for artificial languages. It is worth setting out precisely where they transferred and where they did not, because that is the substance of what this exercise teaches.
 
 \begingroup
@@ -1744,9 +2250,10 @@ Validation & The compiler's output can be executed and tested. & There is no exe
 \end{longtable}
 \endgroup
 
-The row that matters most is the fifth. A compiler that rejects a program is making a claim about the program. An analyzer that rejects an utterance is making a claim about itself --- that its grammar does not reach that far. Keeping that distinction visible is why every rejection in Section 20 is reported with a reason, and why lexical failure is separated from syntactic failure throughout.
+The row that matters most is the fifth. A compiler that rejects a program is making a claim about the program. An analyzer that rejects an utterance is making a claim about itself --- that its grammar does not reach that far. Keeping that distinction visible is why every rejection in Section~\ref{sec:test-results-accepted-and-rejected-sentences} is reported with a reason, and why lexical failure is separated from syntactic failure throughout.
 
 \section{Why Yaounde communication is linguistically complex}
+\label{sec:why-yaounde-communication-is-linguistically-complex}
 Building this analyzer surfaced several specific difficulties. Each of the following is a claim supported by the corpus and by the design decisions the corpus forced.
 
 \subsection{Code-mixing happens below the sentence level}
@@ -1777,6 +2284,7 @@ In writing, a full stop ends a sentence. In speech, clauses are strung together 
 A programming language is designed to be unambiguous, and its lexer and grammar can be exhaustive. Natural urban speech is neither. The response taken here is not to pretend otherwise but to define a deliberately restricted sub-language, state its boundaries explicitly, and report every input that falls outside them rather than failing silently. The value of the analyzer lies as much in what it declines to handle, and says so, as in what it accepts.
 
 \section{Limitations and future work}
+\label{sec:limitations-and-future-work}
 \begin{itemize}
 \item \textbf{The corpus is small.} 15 statements meet the brief but cannot establish frequency distributions with any confidence. The percentages above describe this corpus and should not be read as describing Yaounde speech in general.
 \item \textbf{The vocabulary is closed.} Any word not declared in the specification is rejected as UNKNOWN. This is a deliberate choice --- visible failure over silent guessing --- but it means the analyzer does not generalise to new speakers without extending the lexicon.
@@ -1788,6 +2296,7 @@ A programming language is designed to be unambiguous, and its lexer and grammar 
 \end{itemize}
 
 \section{How to run the analyzer}
+\label{sec:how-to-run-the-analyzer}
 No third-party packages are required; Python 3.10 or later is enough.
 
 \begin{Verbatim}[commandchars=\\\{\},fontsize=\small,formatcom=\vbfmt,frame=leftline,framerule=1.2pt,rulecolor=\color{clay!55},framesep=6pt,xleftmargin=10pt,xrightmargin=4pt]
@@ -1801,12 +2310,25 @@ python -m yca spec            # the lexical specification
 python -m yca freq            # frequency, variation, code-mixing
 python -m yca show S01 --trace   # full detail for one statement
 python -m yca parse "Chef, drop me for Obili." --trace
+python -m yca fix "Chef, drapp me for quartierla."
 python -m yca repl            # interactive; type a statement
+python -m yca gui             # desktop application
+python -m yca web             # browser front end on localhost
 python -m yca report          # regenerate this document
 
 python -m unittest discover -s tests -v   # unit tests
 \end{Verbatim}
 To use your own field data, edit src/yca/corpus.py, replace the statements, set the provenance to FIELD, and regenerate. Every table in this report is computed from that file.
+
+\subsection{The three front ends}
+The same analyzer is reachable three ways. The command line is the one used to generate this report. The desktop application and the browser front end exist because a parse trace and a parse tree are much easier to read when they can be opened side by side than when they scroll past in a terminal. All three construct the same Analyzer over the same specification and grammar, so they cannot disagree about a verdict, and all three expose the correction engine of Section~\ref{sec:error-reporting-and-correction} --- as the Grammar tab in the two windowed front ends, and as the fix subcommand on the command line.
+
+\begin{figure}[!htbp]
+\centering
+\shotimg{web-deployed.png}{0.72}{0.62}
+\caption{The browser front end running over HTTPS on a public server. The certificate is issued by Let's Encrypt and renews automatically; the analyzer itself is the same code shown in the other figures.}
+\label{fig:web-deployed}
+\end{figure}
 
 \subsection{Compiling this report}
 \begin{Verbatim}[commandchars=\\\{\},fontsize=\small,formatcom=\vbfmt,frame=leftline,framerule=1.2pt,rulecolor=\color{clay!55},framesep=6pt,xleftmargin=10pt,xrightmargin=4pt]
@@ -1819,6 +2341,7 @@ pdflatex report.tex        # second pass resolves the contents page
 The unit tests cover the lexer, the grammar transformations, the parser and the report generator. Three groups are worth naming. The grammar tests assert that the transformed grammar derives the same sentences as the original, so the transformations cannot silently change the language. The parser tests assert that acceptance requires both an emptied stack and consumed input, so trailing tokens cannot be ignored. The report tests check the generated LaTeX structurally --- balanced environments, escaped special characters, consistent table column counts --- which stands in for compiling it on a machine without a TeX installation.
 
 \section{Conclusion}
+\label{sec:conclusion}
 We set out to apply the lexical and syntactic phases of a compiler to informal urban speech in Yaounde, and the exercise worked in the narrow sense that matters: the analyzer accepts 15 of 15 collected statements and rejects all 6 of the constructed counter-examples, with every acceptance backed by a derivation and every rejection by a located reason.
 
 Getting there required each of the steps the brief names, and none of them was a formality. The lexical specification had to grow a layer of 24 multiword lexemes, because whitespace does not mark lexeme boundaries in this register. The grammar had to be written with left recursion and a common prefix in it, and then mechanically transformed, because a predictive parser tolerates neither. Computing FIRST and FOLLOW exposed a genuine ambiguity in noun compounding that no amount of rewriting removes, and it is resolved by a stated rule rather than concealed.
@@ -1829,7 +2352,8 @@ The clearest next step is not more grammar but more data. The analyzer is built 
 
 \appendix
 \section{The declared vocabulary}
-The lexical specification declares 24 multiword lexemes and 306 single words. Both are summarised below by token type. The complete annotated list, with glosses and source languages, runs to several hundred entries and is better read in its source form, in src/yca/lexspec.py, or printed with the spec command. Every entry actually attested in the corpus already appears with its gloss in Section 9.
+\label{sec:the-declared-vocabulary}
+The lexical specification declares 24 multiword lexemes and 306 single words. Both are summarised below by token type. The complete annotated list, with glosses and source languages, runs to several hundred entries and is better read in its source form, in src/yca/lexspec.py, or printed with the spec command. Every entry actually attested in the corpus already appears with its gloss in Section~\ref{sec:token-tables-statement-by-statement}.
 
 \begingroup
 \scriptsize
@@ -1850,20 +2374,20 @@ The lexical specification declares 24 multiword lexemes and 306 single words. Bo
 \endfoot
 \bottomrule
 \endlastfoot
-ADJ & 24 & bad, chaud, cher, chere, cold, fine, froid, full, good, gros, hot, last, long, nationale, new, old, petit, plein, ready, small, sweet, vide, zero zero, zero-zero \\
-ADV & 20 & again, always, deja, encore, here, na so, now, quick, quick quick, sef, sharp sharp, small small, still, there, today, tomorrow, trop, vraiment, well, yesterday \\
+ADJ & 24 & bad, chaud, cher, chere, cold, fine, froid, full, good, gros, hot, last, long, nationale, \textit{\ldots{} and 10 more} \\
+ADV & 20 & again, always, deja, encore, here, na so, now, quick, quick quick, sef, sharp sharp, small small, still, there, \textit{\ldots{} and 6 more} \\
 AUX & 12 & bin, can, de, dey, don, fit, make, may, must, should, will, would \\
 CONJ & 9 & and, because, but, donc, et, mais, or, ou, so \\
 COP & 8 & are, be, c'est, ce n'est pas, is, na, was, were \\
-DET & 27 & ce, ces, cette, des, his, its, le, les, ma, mes, mon, my, notre, our, sa, son, ta, tes, that, the, their, these, this, those, ton, une, your \\
-INTERJ & 22 & aah, ah, allo, ashia, eh, ehh, ekie, ekiee, garr, garrr, hmm, hmmm, jamana, je wanda, mmm, no wahala, oh, on est ensemble, ooh, weh, wehh, wooh \\
+DET & 27 & ce, ces, cette, des, his, its, le, les, ma, mes, mon, my, notre, our, \textit{\ldots{} and 13 more} \\
+INTERJ & 22 & aah, ah, allo, ashia, eh, ehh, ekie, ekiee, garr, garrr, hmm, hmmm, jamana, je wanda, \textit{\ldots{} and 8 more} \\
 NEG & 4 & never, no, not, pas \\
-NOUN & 84 & bastos, beignets, bendskin, biyem-assi, boue, camtel, camwater, carburant, carrefour, carte nationale, ce matin, chemin, chop house, compiler, connexion, controle, courant, damas, data, devoir, driver, dross, eneo, essence, essos, etoudi, facture, forfait, fuel, haricot, hier soir, la nuit, light, lundi, man, marche, market, melen, mokolo, money, morning, moto, mtn, mvan, mvog-ada, ndoss, network, nexttel, nga, ngoa-ekelle, night, njoh, nsimeyong, obili, orange, own, people, phone, pikin, place, police, price, problem, prof, quartier, queue, rain, reseau, resultats, road, station, student, students, taxi, taximan, tchop, test, time, tomate, wahala, water, week, woman, yaounde \\
-NUM & 22 & cent, cents, cinq, cinq cents, combien, deux, deux cents, deux mille, dix, five, four, how much, mille, mille cinq, one, quatre, ten, three, trois, trois mille, two, un \\
+NOUN & 84 & bastos, beignets, bendskin, biyem-assi, boue, camtel, camwater, carburant, carrefour, carte nationale, ce matin, chemin, chop house, compiler, \textit{\ldots{} and 70 more} \\
+NUM & 22 & cent, cents, cinq, cinq cents, combien, deux, deux cents, deux mille, dix, five, four, how much, mille, mille cinq, \textit{\ldots{} and 8 more} \\
 PART & 2 & la, o \\
-PREP & 18 & about, at, avec, chez, dans, depuis, for, from, go, in, like, on, pour, since, sur, to, with, without \\
-PRON & 22 & am, dem, elle, he, her, him, i, il, it, je, me, nous, she, them, they, tu, us, vous, we, wetin, wuna, you \\
-VERB & 48 & acheter, arreter, beat, bring, buy, call, carry, chop, close, come, commencer, cut, die, drop, find, finish, give, gomna, hala, happen, hear, help, know, lose, open, pay, payer, put, read, reduce, refuse, sabi, see, sell, send, start, stop, take, talk, tchatcher, understand, use, vendre, wait, waka, wanda, work, write \\
+PREP & 18 & about, at, avec, chez, dans, depuis, for, from, go, in, like, on, pour, since, \textit{\ldots{} and 4 more} \\
+PRON & 22 & am, dem, elle, he, her, him, i, il, it, je, me, nous, she, them, \textit{\ldots{} and 8 more} \\
+VERB & 48 & acheter, arreter, beat, bring, buy, call, carry, chop, close, come, commencer, cut, die, drop, \textit{\ldots{} and 34 more} \\
 VOC & 8 & bendskin man, boss, chef, mami, mbom, mola, mon frere, patron \\
 \end{longtable}
 \endgroup

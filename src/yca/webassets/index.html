@@ -83,6 +83,7 @@
       <button class="tab" data-panel="p-tree" role="tab">Parse tree</button>
       <button class="tab" data-panel="p-trace" role="tab">Parse trace</button>
       <button class="tab" data-panel="p-deriv" role="tab">Derivation</button>
+      <button class="tab" data-panel="p-fix" role="tab">Grammar<span class="tab-dot" id="fix-dot"></span></button>
       <button class="tab" data-panel="p-sets" role="tab">FIRST / FOLLOW</button>
       <button class="tab" data-panel="p-corpus" role="tab">Corpus</button>
       <button class="tab" data-panel="p-stats" role="tab">Statistics</button>
@@ -119,6 +120,14 @@
         <p>The same parse replayed as sentential forms.</p>
       </div>
       <div class="scroller"><ol class="deriv" id="deriv"></ol></div>
+    </section>
+
+    <section class="panel" id="p-fix">
+      <div class="panel-head">
+        <h2>Grammar check and corrections</h2>
+        <p>What went wrong, the closest declared spellings, and a proposal the analyzer re-checks for you.</p>
+      </div>
+      <div class="scroller"><div id="fix"></div></div>
     </section>
 
     <section class="panel" id="p-sets">

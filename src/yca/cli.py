@@ -17,6 +17,7 @@ from .grammar_def import DOCUMENTED_CONFLICTS, prepare, undocumented_conflicts
 from .lexspec import regex_documentation, vocabulary_size
 from .pipeline import Analyzer, StatementResult
 from .render import bullet, heading, table, wrap
+from .suggest import corrections
 from .tokens import TokenType
 
 
@@ -96,6 +97,26 @@ def cmd_parse(args, out) -> int:
     analyzer = Analyzer()
     result = analyzer.analyze_text(args.text, trace=True)
     _print_statement(result, out, show_trace=args.trace, show_tree=not args.no_tree)
+    return 0 if result.accepted else 1
+
+
+def cmd_fix(args, out) -> int:
+    """Analyze one statement and print what the correction engine advises.
+
+    Exits 0 when the statement is already in the language, 1 otherwise, so the
+    command can be used as a check in a script.
+    """
+    analyzer = Analyzer()
+    result = analyzer.analyze_text(args.text, trace=True)
+
+    print(heading("Verdict", 1), file=out)
+    print(f"{result.verdict}   {result.text}", file=out)
+    if result.reason:
+        print(wrap(result.reason), file=out)
+
+    print(heading("Corrections", 1), file=out)
+    report = corrections(result, analyzer)
+    print("\n".join(report.lines()), file=out)
     return 0 if result.accepted else 1
 
 
@@ -604,6 +625,26 @@ def cmd_report(args, out) -> int:
     return status
 
 
+def cmd_slides(args, out) -> int:
+    from .slides import MAX_SLIDES, write_slides
+
+    path = write_slides(args.output)
+    print(f"Beamer slides written to {path} (at most {MAX_SLIDES} pages)",
+          file=out)
+
+    status = 0
+    if args.pdf:
+        status = _compile_pdf(path, out)
+    else:
+        print(
+            f"Compile with: cd {path.parent} && pdflatex {path.name} "
+            f"(twice), or rerun with --pdf.",
+            file=out,
+        )
+
+    return status
+
+
 # --------------------------------------------------------------------------
 # Argument parsing
 # --------------------------------------------------------------------------
@@ -624,6 +665,10 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--trace", action="store_true", help="show the parse trace")
     s.add_argument("--no-tree", action="store_true", help="hide the parse tree")
     s.set_defaults(func=cmd_parse)
+
+    s = sub.add_parser("fix", help="explain a rejection and propose a correction")
+    s.add_argument("text")
+    s.set_defaults(func=cmd_fix)
 
     s = sub.add_parser("grammar", help="show the grammar, transformations and table")
     s.add_argument("--matrix", action="store_true",
@@ -677,6 +722,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="also compile the .tex to PDF if a LaTeX engine is installed",
     )
     s.set_defaults(func=cmd_report)
+
+    s = sub.add_parser("slides",
+                       help="generate the presentation deck (LaTeX beamer)")
+    s.add_argument("-o", "--output", default="docs/slides.tex")
+    s.add_argument(
+        "--pdf",
+        action="store_true",
+        help="also compile the .tex to PDF if a LaTeX engine is installed",
+    )
+    s.set_defaults(func=cmd_slides)
 
     return p
 

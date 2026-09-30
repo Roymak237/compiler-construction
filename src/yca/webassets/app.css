@@ -803,6 +803,148 @@ body {
 }
 .deriv li:first-child::after { content: ""; }
 
+/* Grammar check and corrections ------------------------------------
+   The panel has to carry three different things -- a verdict, ranked
+   spelling candidates and a proposal -- without looking like three
+   different applications, so they share one card shell and differ only
+   by the colour of the left edge. */
+
+#fix { padding: 16px 22px 24px; }
+
+.fix-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 13px 16px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 14px;
+}
+.fix-head.ok  { background: var(--accept-bg); }
+.fix-head.bad { background: var(--reject-bg); }
+.fix-head p {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--ink);
+}
+.fix-mark { font-size: 16px; line-height: 1.3; }
+.fix-head.ok  .fix-mark { color: var(--moss); }
+.fix-head.bad .fix-mark { color: var(--clay); }
+
+.fix-card {
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--clay);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  padding: 13px 16px;
+  margin-bottom: 13px;
+}
+.fix-card.proposal.ok  { border-left-color: var(--moss); background: #FBFDFB; }
+.fix-card.proposal.bad { border-left-color: var(--mist); }
+
+.fix-top {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-bottom: 7px;
+}
+.fix-lex {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--clay-deep);
+  background: var(--parchment);
+  border-radius: 5px;
+  padding: 2px 7px;
+}
+.fix-where { font-size: 11.5px; color: var(--mist); font-family: var(--sans); }
+.fix-tag {
+  font-family: var(--sans);
+  font-size: 10px;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: #fff;
+  background: var(--moss);
+  border-radius: 20px;
+  padding: 2px 9px;
+}
+.fix-tag.warn { background: var(--slate); }
+
+.fix-advice {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink-soft);
+}
+.fix-proposal {
+  margin: 0 0 11px;
+  font-family: var(--mono);
+  font-size: 13.5px;
+  color: var(--ink);
+  background: var(--zebra);
+  border-radius: var(--radius-sm);
+  padding: 10px 13px;
+  word-break: break-word;
+}
+.chip.apply { border-color: var(--moss); color: var(--moss); }
+
+.cand-list { margin-top: 10px; }
+.cand {
+  display: grid;
+  grid-template-columns: 140px 72px 86px 42px 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-top: 1px dashed #F0ECE3;
+  cursor: pointer;
+}
+.cand.static { grid-template-columns: 72px 1fr; cursor: default; }
+.cand:hover:not(.static) { background: var(--hover); }
+.cand-form {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--ink);
+  word-break: break-word;
+}
+.cand-bar {
+  display: block;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--rule);
+  overflow: hidden;
+}
+.cand-fill { display: block; height: 100%; background: var(--clay); }
+.cand-score { font-family: var(--mono); font-size: 11.5px; color: var(--slate); }
+.cand-why { font-family: var(--sans); font-size: 11.5px; color: var(--mist); }
+.cand-gloss {
+  grid-column: 3 / -1;
+  font-family: var(--sans);
+  font-size: 11.5px;
+  color: var(--slate);
+  font-style: italic;
+}
+
+/* A quiet mark on the tab itself, so a rejection is visible without
+   leaving whichever panel the reader is on. */
+.tab-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: transparent;
+  vertical-align: middle;
+}
+.tab-dot.on { background: var(--clay); }
+
+@media (max-width: 760px) {
+  .cand { grid-template-columns: 1fr auto; }
+  .cand-bar, .cand-score { display: none; }
+}
+
 /* Statistics ------------------------------------------------------- */
 
 .stats { padding: 20px 22px 24px; }

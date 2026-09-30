@@ -17,14 +17,18 @@ The second pass resolves the table of contents.
 
 from __future__ import annotations
 
+import re
+
 from pathlib import Path
 
 from . import corpus
 from .analysis import distinct_token_inventory, frequency_report, token_table
+from .figures import compiler_phases, lexer_automaton, parser_machine
 from .grammar import END, EPSILON
 from .grammar_def import DOCUMENTED_CONFLICTS, prepare, undocumented_conflicts
 from .lexspec import PHRASES, WORDS, regex_documentation, vocabulary_size
 from .pipeline import Analyzer
+from .suggest import corrections
 from .tokens import TokenType
 
 # --------------------------------------------------------------------------
@@ -81,14 +85,62 @@ def _smart_quotes(text: str) -> str:
     return "".join(out)
 
 
+#: A cross-reference written inside ordinary prose as @@section-label@@.
+#: The delimiters are deliberately made of characters LaTeX does not treat
+#: specially, so the marker survives escaping and can be substituted
+#: afterwards; writing a backslash directly in prose would be escaped away.
+_REF_MARK = re.compile(r"@@([a-z0-9-]+)@@")
+
+
+def _apply_refs(text: str) -> str:
+    """Replace @@label@@ markers with real LaTeX cross-references."""
+    return _REF_MARK.sub(
+        lambda m: r"Section~\ref{sec:" + m.group(1) + "}", text
+    )
+
+
 def prose(text: str) -> str:
     """Escape a paragraph of running text, pairing its quotes as well."""
-    return _smart_quotes(esc(text))
+    return _apply_refs(_smart_quotes(esc(text)))
 
 
 def tt(text: object) -> str:
     """Escape *text* and set it in a monospace font."""
     return r"\texttt{" + esc(text) + "}"
+
+
+#: Widths of the screenshot figures, as a fraction of the text width.
+#: Shrinking these does *not* buy back pages -- it was tried, and the
+#: reclaimed space reappears as slack rather than as a removed page,
+#: because the figures are not what spills. They are set for legibility.
+SHOT_WIDTH = 0.55
+SHOT_PAIR_WIDTH = 0.43
+
+#: Expected height-to-width ratio of a capture, used only to reserve space
+#: for one that has not been taken yet. A maximised window is about 16:10;
+#: a single cropped panel is much wider than it is tall. Getting these
+#: roughly right keeps the page count honest before the real images exist.
+RATIO_WINDOW = 0.62
+RATIO_PANEL = 0.42
+
+
+def slug(title: str) -> str:
+    """Turn a section title into a stable LaTeX label.
+
+    Section numbers used to be written into the cross-reference table by
+    hand, and they drifted the moment a section was inserted. Deriving a
+    label from the title instead lets LaTeX resolve the number, so the
+    table cannot disagree with the document.
+    """
+    out = "".join(ch.lower() if ch.isalnum() else "-" for ch in title)
+    while "--" in out:
+        out = out.replace("--", "-")
+    return out.strip("-")
+
+
+def ref(label: str) -> str:
+    """A cross-reference to a section, rendered as "Section N"."""
+    return r"Section~\ref{sec:" + label + "}"
 
 
 def breakable(text: object) -> str:
@@ -381,7 +433,7 @@ PREAMBLE = r"""\documentclass[11pt,a4paper]{article}
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
 \usepackage{lmodern}
-\usepackage[margin=2.1cm]{geometry}
+\usepackage[margin=1.8cm]{geometry}
 \usepackage{array}
 \usepackage[table,dvipsnames]{xcolor}
 \usepackage{longtable}
@@ -437,6 +489,59 @@ PREAMBLE = r"""\documentclass[11pt,a4paper]{article}
 %% Captions in the same ink as the headings, and set apart from the body.
 \usepackage[font=small,labelfont={bf,color=ink},textfont=it,skip=3pt]{caption}
 
+%% ----------------------------------------------------------- screenshots
+%% The brief requires screenshots of the working analyzer. They live in
+%% docs/screenshots/, or ../screenshots/ when the .tex is compiled from
+%% the repository root.
+%%
+%% \IfFileExists degrades a missing capture to a labelled placeholder
+%% rather than failing the build -- the same policy as the cover crest.
+%% The placeholder names the file it wants, so it doubles as a worklist.
+%%
+%% The placeholder reserves the height a real capture will occupy (16:10,
+%% the usual proportion of a maximised window), so the page count does not
+%% jump when the real images are dropped in. The width and height go
+%% through length registers because TeX cannot parse two chained factors
+%% such as "0.625 0.8\linewidth".
+\newlength{\shotwd}
+\newlength{\shotht}
+%% #1 file name, #2 fraction of the line width, #3 height as a fraction
+%% of the width. All three commands take the same three arguments so a
+%% caller never has to know whether the file happens to be present.
+\newcommand{\shotmissing}[3]{%
+  \setlength{\shotwd}{#2\linewidth}%
+  \setlength{\shotht}{#3\shotwd}%
+  \setlength{\fboxsep}{0pt}%
+  \fcolorbox{rule}{parchment}{%
+    \begin{minipage}[c][\shotht][c]{\shotwd}%
+      \centering\small\color{clay}\itshape
+      screenshot not yet captured\\[0.4em]
+      {\ttfamily\footnotesize\upshape screenshots/#1}
+    \end{minipage}}}
+%% #1 file name, #2 fraction of the line width, #3 placeholder ratio.
+%% A real capture keeps its own proportions, so #3 is consulted only when
+%% the file is absent.
+\newcommand{\shotimg}[3]{%
+  \setlength{\fboxsep}{0pt}\setlength{\fboxrule}{0.4pt}%
+  \IfFileExists{screenshots/#1}
+    {\fcolorbox{rule}{white}{\includegraphics[width=#2\linewidth]{screenshots/#1}}}
+    {\IfFileExists{../screenshots/#1}
+       {\fcolorbox{rule}{white}{\includegraphics[width=#2\linewidth]{../screenshots/#1}}}
+       {\shotmissing{#1}{#2}{#3}}}}
+
+%% Float placement. The defaults strand a lot of whitespace once a
+%% document carries this many figures: LaTeX would rather push a figure to
+%% its own page than let it share one with text. These settings let a
+%% figure sit with the prose it illustrates, which is where it belongs
+%% anyway, and reclaim about a page across the report.
+\setlength{\textfloatsep}{9pt plus 2pt minus 2pt}
+\setlength{\floatsep}{8pt plus 2pt minus 2pt}
+\setlength{\intextsep}{9pt plus 2pt minus 2pt}
+\renewcommand{\topfraction}{0.92}
+\renewcommand{\bottomfraction}{0.85}
+\renewcommand{\textfraction}{0.07}
+\renewcommand{\floatpagefraction}{0.80}
+
 %% ------------------------------------------------------------- verbatim
 %% Code and machine output sit on parchment so they read as quoted
 %% material rather than as prose.
@@ -449,9 +554,9 @@ PREAMBLE = r"""\documentclass[11pt,a4paper]{article}
 
 \setlength{\parindent}{0pt}
 \setlength{\parskip}{0.34em}
-\renewcommand{\arraystretch}{1.0}
+\renewcommand{\arraystretch}{0.95}
 \setlist{nosep,leftmargin=1.4em}
-\linespread{0.98}
+\linespread{0.96}
 
 %% Keep table captions compact.
 \setlength{\LTpre}{0.45em}
@@ -504,6 +609,27 @@ def title_page() -> str:
     ])
 
 
+def figure(picture: str, caption: str, *, label: str) -> str:
+    """Return a float carrying a generated TikZ *picture*.
+
+    Kept outside :func:`build_report` because the diagrams are shared with
+    the slide deck and nothing about wrapping one in a float depends on the
+    report's local state.  ``!htbp`` is used for the same reason the
+    screenshots use it: without the exclamation mark LaTeX will happily defer
+    a run of figures to float pages at the end, which separates each diagram
+    from the paragraph that motivates it.
+    """
+    return "\n".join([
+        r"\begin{figure}[!htbp]",
+        r"\centering",
+        picture,
+        r"\caption{" + _apply_refs(esc(caption)) + "}",
+        r"\label{fig:" + label + "}",
+        r"\end{figure}",
+        "",
+    ])
+
+
 # --------------------------------------------------------------------------
 # The report
 # --------------------------------------------------------------------------
@@ -524,9 +650,54 @@ def build_report() -> str:
 
     def section(title: str) -> None:
         w(r"\section{" + esc(title) + "}")
+        w(r"\label{sec:" + slug(title) + "}")
 
     def subsection(title: str) -> None:
         w(r"\subsection{" + esc(title) + "}")
+
+    def shot(name: str, caption: str, *, width: float = SHOT_WIDTH,
+             ratio: float = RATIO_PANEL) -> None:
+        """Place one screenshot of the running software.
+
+        The brief lists "screenshots of working analyzer" among the required
+        report contents. Each one is placed beside the claim it evidences
+        rather than collected in an appendix, so a marker checking a given
+        requirement sees the proof in the same place as the argument.
+
+        The ``!`` in the placement specifier matters. Without it LaTeX
+        applies its aesthetic limits on how much of a page a float may
+        occupy, and with this many figures it would rather defer several to
+        float pages at the end of the document -- which both separates each
+        capture from the argument it supports and costs about a page.
+        """
+        w(r"\begin{figure}[!htbp]")
+        w(r"\centering")
+        w(r"\shotimg{" + name + "}{" + f"{width:g}" + "}{" + f"{ratio:g}" + "}")
+        w(r"\caption{" + _apply_refs(esc(caption)) + "}")
+        w(r"\label{fig:" + name.rsplit(".", 1)[0] + "}")
+        w(r"\end{figure}")
+        w("")
+
+    def shot_pair(left: str, right: str, caption: str,
+                  *, width: float = SHOT_PAIR_WIDTH,
+                  ratio: float = RATIO_PANEL) -> None:
+        """Two screenshots side by side, sharing one caption and number.
+
+        The two images and the gap between them are emitted as a single
+        line. Splitting them across lines would introduce stray spaces,
+        and the usual cure -- ending each line with a comment character --
+        would trip the report's own guard against unescaped per-cent signs.
+        """
+        size = "}{" + f"{width:g}" + "}{" + f"{ratio:g}" + "}"
+        w(r"\begin{figure}[!htbp]")
+        w(r"\centering")
+        w(r"\shotimg{" + left + size
+          + r"\hspace{0.02\linewidth}"
+          + r"\shotimg{" + right + size)
+        w(r"\caption{" + _apply_refs(esc(caption)) + "}")
+        w(r"\label{fig:" + left.rsplit(".", 1)[0] + "-pair}")
+        w(r"\end{figure}")
+        w("")
 
     # ------------------------------------------------------------ preamble
     w(PREAMBLE)
@@ -563,6 +734,16 @@ def build_report() -> str:
         "generation phases of a full compiler are outside the brief and are "
         "not implemented."
     )
+    w(figure(
+        compiler_phases(0.95),
+        "The classical phases of a compiler, with the boundary of this "
+        "project marked. Solid boxes are implemented, tested and measured "
+        "here; dashed boxes are the synthesis phases a full compiler would "
+        "add. The two dashed feeds from below are the declarative inputs "
+        "--- the lexical specification and the grammar --- which the phases "
+        "consult rather than contain.",
+        label="phases",
+    ))
     para(
         "Every table in this document is generated by the analyzer at the "
         "moment the report is produced. No figure has been copied across by "
@@ -596,31 +777,56 @@ def build_report() -> str:
     w("")
 
     subsection("Where each requirement is addressed")
+    para(
+        "Section numbers below are cross-references resolved by LaTeX at "
+        "compile time rather than numbers typed in by hand, so they cannot "
+        "fall out of step with the document as it is edited."
+    )
     w(longtable(
         "L{0.40} L{0.42}",
         ["Requirement", "Addressed in"],
         [
             ("Collect statements from daily communication",
-             "Section 3, with the collection protocol in Section 2"),
+             ref("data-collection-and-raw-statements")
+             + ", with the collection protocol in " + ref("methodology")),
             ("Transcribe faithfully, including slang",
-             "Section 2.2 (transcription conventions), Section 3"),
-            ("Identify token types", "Section 5"),
-            ("Define regular expressions for each token class", "Section 6"),
-            ("Produce a token table for every statement", "Section 8"),
-            ("Analyze token frequency and variation", "Section 10"),
-            ("Design a context-free grammar", "Section 12"),
-            ("Eliminate left recursion", "Section 13"),
-            ("Apply left factoring", "Section 14"),
-            ("Compute FIRST and FOLLOW sets", "Section 15"),
-            ("Construct the LL(1) parsing table", "Sections 16 and 17"),
-            ("Implement a parser", "Section 19"),
-            ("Show accepted and rejected sentences", "Section 20"),
+             ref("methodology") + " and "
+             + ref("data-collection-and-raw-statements")),
+            ("Identify token types",
+             ref("lexical-analysis-the-token-inventory")),
+            ("Define regular expressions for each token class",
+             ref("lexical-specification-regular-expressions")),
+            ("Produce a token table for every statement",
+             ref("token-tables-statement-by-statement")),
+            ("Analyze token frequency and variation",
+             ref("token-frequency-and-variation")),
+            ("Design a context-free grammar",
+             ref("syntactic-analysis-the-grammar")),
+            ("Eliminate left recursion", ref("removing-left-recursion")),
+            ("Apply left factoring", ref("left-factoring")),
+            ("Compute FIRST and FOLLOW sets",
+             ref("first-and-follow-sets")),
+            ("Construct the LL(1) parsing table",
+             ref("the-ll-1-parsing-table") + " and "
+             + ref("conflicts-and-how-they-are-resolved")),
+            ("Implement a parser", ref("the-parser")),
+            ("Report errors and propose corrections",
+             ref("error-reporting-and-correction")),
+            ("Show accepted and rejected sentences",
+             ref("test-results-accepted-and-rejected-sentences")),
             ("Show parse trees and derivations",
-             "Sections 21, 22 and 23"),
-            ("Discuss linguistic complexity", "Section 25"),
-            ("State limitations", "Section 26"),
+             ref("worked-parse-traces") + ", "
+             + ref("leftmost-derivations") + " and "
+             + ref("a-further-parse-tree")),
+            ("Screenshots of the working analyzer",
+             "Figures throughout; the front ends are shown in "
+             + ref("how-to-run-the-analyzer")),
+            ("Discuss linguistic complexity",
+             ref("why-yaounde-communication-is-linguistically-complex")),
+            ("State limitations", ref("limitations-and-future-work")),
         ],
         caption="Mapping from the assignment brief to this report.",
+        escape=False,
     ))
 
     # --------------------------------------------------- 2 methodology
@@ -642,7 +848,8 @@ def build_report() -> str:
         "The alternative --- recording people without their knowledge --- was "
         "not acceptable, and recording with their knowledge changes the "
         "register that is the object of study. The compromise taken here "
-        "favours ethics over fidelity, and the cost is recorded in Section 26."
+        "favours ethics over fidelity, and the cost is recorded in "
+        "@@limitations-and-future-work@@."
     )
 
     subsection("Transcription conventions")
@@ -770,6 +977,10 @@ def build_report() -> str:
              "Frequency, spelling variation and code-mixing statistics."),
             ("report.py", "Generates this document."),
             ("cli.py", "The command-line interface."),
+            ("gui.py", "The desktop application, built on Tkinter."),
+            ("web.py",
+             "The browser front end and its JSON API, served from the "
+             "standard library alone."),
         ],
         caption="Modules and their responsibilities.",
     ))
@@ -777,11 +988,32 @@ def build_report() -> str:
     para(
         "One design decision deserves comment. The grammar transformations are "
         "implemented rather than done by hand and pasted in. This costs more "
-        "code, but it means Sections 13 and 14 show what the program actually "
+        "code, but it means @@removing-left-recursion@@ and "
+        "@@left-factoring@@ show what the program actually "
         "did, and that changing the grammar in one place updates the "
         "transformations, the FIRST and FOLLOW sets, the parse table and every "
         "trace in this report at once. A report that is written by hand "
         "alongside a program will eventually contradict it."
+    )
+
+    para(
+        "The analyzer is reachable three ways --- a command line, a desktop "
+        "window and a browser --- but all three construct the same Analyzer "
+        "object over the same specification and grammar, so they cannot "
+        "disagree about a verdict. The screenshots throughout this report are "
+        "taken from the browser front end because it shows the most detail at "
+        "once; the figures in this section show the software as a whole, and "
+        "later sections show the particular panel that evidences the point "
+        "under discussion."
+    )
+    shot(
+        "app-overview.png",
+        "The analyzer immediately after analysing a corpus statement. The "
+        "verdict, the token stream, the parse tree, the parser trace, the "
+        "derivation, the grammar sets and the corpus results are each on "
+        "their own tab.",
+        width=0.72,
+        ratio=RATIO_WINDOW,
     )
 
     # ------------------------------------------------- 3 token inventory
@@ -903,11 +1135,20 @@ def build_report() -> str:
         "dictionary lookup followed by regular-expression matching rather "
         "than as one combined automaton."
     )
+    w(figure(
+        lexer_automaton(0.92),
+        "The scanner drawn as a finite-state machine. The three probes are "
+        "tried in the order shown at every position, which is how maximal "
+        "munch is obtained without building a combined automaton; the dashed "
+        "edge is the loop back over the remaining input.",
+        label="lexer-automaton",
+    ))
     para(
         "This is a deliberate trade. A combined automaton would be faster, but "
         "the specification would stop being readable: the point of this "
         "artefact is that a reader can see which rule classified which word, "
-        "and the rule column of every token table in Section 8 depends on that "
+        "and the rule column of every token table in "
+        "@@token-tables-statement-by-statement@@ depends on that "
         "being recoverable. At corpus scale the performance difference is "
         "irrelevant, and the priority is that the classification be auditable."
     )
@@ -952,13 +1193,14 @@ def build_report() -> str:
         "The table below is the exact output of the lexical analyzer for every "
         "collected statement, in order. The rule column names the lexical rule "
         "that matched, so each classification can be traced back to the "
-        "specification of Section 6. A bold line introduces each statement."
+        "specification of @@lexical-specification-regular-expressions@@. A "
+        "bold line introduces each statement."
     )
     token_rows: list[tuple[str, ...]] = []
     for result in results:
         token_rows.append(
             (
-                r"\multicolumn{7}{@{}l@{}}{\rule{0pt}{2.6ex}\textbf{"
+                r"\multicolumn{4}{@{}l@{}}{\rule{0pt}{2.6ex}\textbf{"
                 + esc(result.sid) + "} " + esc(result.text)
                 + r" \textit{(" + esc(result.verdict) + r")}}",
             )
@@ -967,15 +1209,28 @@ def build_report() -> str:
             tuple(esc(c) for c in row) for row in token_table(result)
         )
     w(longtable(
-        "L{0.03} L{0.13} L{0.07} L{0.12} L{0.04} L{0.08} L{0.28}",
-        ["#", "Lexeme", "Token", "Language", "Slang", "Rule", "Gloss"],
+        "L{0.04} L{0.22} L{0.14} L{0.22}",
+        ["#", "Lexeme", "Token", "Rule"],
         token_rows,
         caption="Lexical analysis of every collected statement.",
         size=r"\scriptsize",
         escape=False,
     ))
+    para(
+        "Language, slang status and gloss are properties of the lexical item "
+        "rather than of the occurrence, so they are given once each in "
+        "@@the-complete-lexical-inventory-of-the-corpus@@ instead of being "
+        "repeated here for every repetition of a word."
+    )
 
     subsection("The resulting token streams")
+    shot(
+        "tokens-panel.png",
+        "The token stream for one statement as the analyzer displays it. Each "
+        "lexeme carries its token type, the rule that matched it and its "
+        "source language; unrecognised input would appear here as UNKNOWN "
+        "rather than being dropped.",
+    )
     w(longtable(
         "L{0.05} L{0.76}",
         ["ID", "Token stream"],
@@ -998,7 +1253,8 @@ def build_report() -> str:
     section("The complete lexical inventory of the corpus")
     inventory = distinct_token_inventory(results)
     para(
-        f"Collapsing the {report.total_tokens} tokens of Section 8 by token "
+        f"Collapsing the {report.total_tokens} tokens of "
+        "@@token-tables-statement-by-statement@@ by token "
         f"type and folded form leaves {len(inventory)} distinct lexical items. "
         "This is the vocabulary the corpus actually exercises, as opposed to "
         "the vocabulary the specification declares, and the difference between "
@@ -1006,31 +1262,22 @@ def build_report() -> str:
         "evidenced by data."
     )
     w(longtable(
-        "L{0.10} L{0.06} L{0.64}",
-        ["Token", "Count", "Attested lexical items"],
+        "L{0.16} L{0.09} L{0.13} L{0.05} L{0.34}",
+        ["Lexeme", "Token", "Language", "Slang", "Gloss"],
         [
             (
-                ttype,
-                str(len(items)),
-                ", ".join(sorted(items)),
+                token.normalized,
+                str(token.type),
+                "/".join(str(l) for l in token.languages),
+                "yes" if token.is_slang else "",
+                token.gloss,
             )
-            for ttype, items in sorted(
-                {
-                    str(t.type): [
-                        x.normalized for x in inventory if x.type is t.type
-                    ]
-                    for t in inventory
-                }.items()
-            )
+            for token in inventory
         ],
-        caption="Every distinct lexical item attested in the corpus, "
-                "grouped by token type.",
-        size=r"\footnotesize",
+        caption="Every distinct lexical item attested in the corpus, with "
+                "its gloss and source language.",
+        size=r"\scriptsize",
     ))
-    para(
-        "Glosses and source languages for each of these appear in Section 8, "
-        "where every occurrence is listed with its statement."
-    )
     declared = len(WORDS) + len(PHRASES)
     para(
         f"The specification declares {declared} entries and the corpus "
@@ -1208,7 +1455,8 @@ def build_report() -> str:
         "NP": "A noun phrase: optional determiner, noun group, optional "
               "particle.",
         "NGopt": "The optional continuation of a noun compound; the source of "
-                 "the documented conflict in Section 18.",
+                 "the documented conflict in "
+                 "@@conflicts-and-how-they-are-resolved@@.",
         "PP": "A preposition followed by a noun phrase.",
         "Clause_f": "Generated by left factoring; decides between the verbal "
                     "and the copular predicate once the shared subject has "
@@ -1218,10 +1466,16 @@ def build_report() -> str:
         "L{0.15} L{0.66}",
         ["Nonterminal", "Meaning"],
         [
-            (nt, glossary.get(nt, "Generated by a grammar transformation."))
+            # escape=False below, because the meaning column carries a
+            # cross-reference; the name column must therefore be escaped
+            # here instead -- "Clause_f" contains an underscore.
+            (esc(nt), _apply_refs(esc(
+                glossary.get(nt, "Generated by a grammar transformation.")
+            )))
             for nt in prepared.final.nonterminals
         ],
         caption="The nonterminals of the final grammar.",
+        escape=False,
     ))
 
     subsection("Design decisions behind the grammar")
@@ -1353,7 +1607,7 @@ def build_report() -> str:
         "on. Because NGopt can itself derive the empty string, this set is "
         "also exactly the set of lookaheads on which the parser must choose "
         "to stop compounding --- which is why the conflict discussed in "
-        "Section 18 arises precisely here:"
+        "@@conflicts-and-how-they-are-resolved@@ arises precisely here:"
     )
     w(verbatim(wrap_set("FOLLOW(NGopt)", prepared.table.follow["NGopt"])))
     para(
@@ -1388,13 +1642,21 @@ def build_report() -> str:
     para(
         "The table is given as a grid, split into blocks of columns so that it "
         "fits the page. A dash marks an empty cell; the other entries are the "
-        "production numbers assigned in Section 14."
+        "production numbers assigned in @@left-factoring@@."
     )
 
     numbering = {}
     for i, line in enumerate(prepared.final.numbered_productions(), 1):
         _, _, rule = line.partition(".")
         numbering[rule.strip()] = i
+
+    shot(
+        "trace-accepted.png",
+        "The table above, in use. At each step the stack top and the one-token "
+        "lookahead select a cell, and the production found there is pushed in "
+        "reverse. The trace is produced by the parser itself, so it is the "
+        "same table being read here that is printed below.",
+    )
 
     def rule_number(nt: str, terminal: str) -> str:
         production = prepared.table.lookup(nt, terminal)
@@ -1431,7 +1693,7 @@ def build_report() -> str:
         "is what makes the parser's error messages useful: an empty cell is "
         "not merely a failure, it is a statement about which terminals would "
         "have been acceptable instead, and that is the set reported in "
-        "Section 20."
+        "@@test-results-accepted-and-rejected-sentences@@."
     )
 
     # ------------------------------------------ 13 conflicts
@@ -1460,6 +1722,12 @@ def build_report() -> str:
                     "should be resolved before submission."
                 )
         remaining = undocumented_conflicts(prepared.table)
+        shot(
+            "sets-panel.png",
+            "The sets the conflict is born from. FIRST and FOLLOW are computed "
+            "from the grammar at run time rather than transcribed, and it is "
+            "their overlap at NGopt that puts two productions in one cell.",
+        )
         para(
             f"{len(conflicts)} conflict in total, of which {len(remaining)} "
             f"remain unreviewed."
@@ -1487,6 +1755,14 @@ def build_report() -> str:
         "end marker and the lookahead is also the end marker, so trailing "
         "tokens cannot be ignored."
     )
+    w(figure(
+        parser_machine(0.95),
+        "The parser as a stack machine. One token of lookahead, one stack, "
+        "and a table that chooses the production: the code contains no "
+        "grammar-specific decision at all. Acceptance is a joint condition, "
+        "which is what prevents trailing input from being ignored.",
+        label="parser-machine",
+    ))
     para("Two behaviours are worth noting.")
     w(r"\begin{itemize}")
     w(r"\item " + prose(
@@ -1502,8 +1778,117 @@ def build_report() -> str:
     ))
     w(r"\end{itemize}")
     w("")
+    shot(
+        "conflict-panel.png",
+        "The analyzer presents the documented conflict as a decision rather "
+        "than a failure: the rule taken, the rule declined, and the "
+        "justification. An unreviewed conflict would be badged differently, "
+        "so the distinction is visible in the software and not only in this "
+        "report.",
+    )
 
-    # ------------------------------------------ 15 test results
+    # --------------------------------- 15 error reporting and correction
+    section("Error reporting and correction")
+    para(
+        "A compiler that says only \"syntax error\" is a poor compiler, and "
+        "the same is true of an analyzer over speech. Rejection is where this "
+        "system has to do its most useful work, because a rejected "
+        "transcription is far more often a transcription problem than a "
+        "genuine statement outside the language. The analyzer therefore "
+        "answers every rejection with a diagnosis and, where the evidence "
+        "supports one, a proposed correction."
+    )
+    para(
+        "The two kinds of failure are answered differently, which is the "
+        "point of separating them in the first place. A lexical failure names "
+        "a lexeme that is not in the specification, so the useful answer is a "
+        "spelling. A syntactic failure means every word was recognised but "
+        "the order is not generated by the grammar, so the useful answer is "
+        "the set of terminals the table would have accepted, with an example "
+        "of each drawn from the declared vocabulary."
+    )
+
+    subsection("Finding the intended spelling")
+    para(
+        "Ranking candidate spellings by edit distance alone is not good "
+        "enough here, because the disagreements in this material are not "
+        "random typing slips. They are disagreements about how to write a "
+        "sound that has no settled orthography. Three measures are therefore "
+        "combined, and each contributes for a stated reason."
+    )
+    w(longtable(
+        "L{0.21} L{0.55}",
+        ["Measure", "What it is for"],
+        [
+            ("Damerau-Levenshtein distance",
+             "The base score. Transpositions count as one edit rather than "
+             "two, because a swapped pair of letters is a common slip and "
+             "should not be penalised as heavily as two independent changes."),
+            ("Phonetic key",
+             "Collapses the consonant spellings transcribers genuinely "
+             "disagree about: tch, ch and sh become one symbol, qu becomes k, "
+             "ou becomes u, h is dropped. Two forms that sound alike score "
+             "close together even when they look very different."),
+            ("Consonant skeleton",
+             "Vowels are the least stable part of an informal transcription, "
+             "so two forms with the same consonants in the same order are "
+             "treated as related. This is the weakest of the three signals "
+             "and carries the smallest bonus."),
+        ],
+        caption="The three signals combined when ranking a replacement.",
+    ))
+    para(
+        "A bonus can only promote a candidate that was already plausible on "
+        "letters alone. Without that floor, every short word would match "
+        "every other short word through the phonetic key, and the ranking "
+        "would become noise. A candidate is only used to rewrite a statement "
+        "when it clears a confidence threshold; below it, candidates are "
+        "listed for the reader to judge and no rewrite is offered."
+    )
+
+    subsection("Words written together")
+    para(
+        "One class of error is answered without any scoring at all. "
+        "Transcribers routinely attach a post-nominal particle to the word in "
+        "front of it, writing quartierla for quartier la. Before ranking "
+        "anything, the engine tries every way of cutting the unknown run in "
+        "two and keeps a cut only when both halves are separately declared. "
+        "That is a fact about the specification rather than a guess about "
+        "intent, so where it applies it is preferred over the closest "
+        "spelling."
+    )
+
+    subsection("A proposal that is checked, not asserted")
+    para(
+        "When every unknown lexeme in a statement has a confident "
+        "replacement, the engine splices those replacements back into the "
+        "original transcription at the character offsets the lexer recorded, "
+        "and then runs the result through the analyzer again. What the user "
+        "is shown is therefore the outcome of an actual parse, not a claim "
+        "that the correction would work. A proposal that still fails is "
+        "reported as still failing, with its new reason, which is itself "
+        "informative: it means the difficulty was never the spelling."
+    )
+    para(
+        "This facility is reachable from all three front ends --- the "
+        "Grammar tab of the browser and desktop applications, and the fix "
+        "subcommand described in @@how-to-run-the-analyzer@@ --- because, "
+        "like every other capability in this project, it is implemented once "
+        "and shared rather than reimplemented per interface."
+    )
+
+    fix_demo = "Chef, drapp me for quartierla."
+    fix_result = analyzer.analyze_text(fix_demo, trace=False)
+    w(verbatim(
+        "\n".join(corrections(fix_result, analyzer).lines())
+    ))
+    para(
+        "The output above is generated by running the engine while this "
+        "report is written, so it is what the software actually produces "
+        "rather than a transcript of an earlier session."
+    )
+
+    # ------------------------------------------ 16 test results
     section("Test results: accepted and rejected sentences")
     subsection("Corpus statements")
     w(longtable(
@@ -1548,7 +1933,14 @@ def build_report() -> str:
         "action taken at each step. One accepted statement is shown in full, "
         "followed by one rejection with the diagnosis the parser produced. "
         "Traces for the remaining statements are obtainable from the analyzer "
-        "with the show command described in Section 26."
+        "with the show command described in @@how-to-run-the-analyzer@@."
+    )
+    shot(
+        "trace-rejected.png",
+        "A rejection as the analyzer reports it: the offending token, its "
+        "position, and the terminals the table would have accepted in that "
+        "position instead. The accepted counterpart is shown in "
+        "@@the-ll-1-parsing-table@@.",
     )
 
     def trace_table(res, label: str) -> None:
@@ -1621,7 +2013,7 @@ def build_report() -> str:
         "traced above. A leaf labelled with a quoted lexeme is a matched "
         "terminal; a bare epsilon is an empty production. Trees for the "
         "remaining statements are obtainable from the analyzer with the show "
-        "command described in Section 25."
+        "command described in @@how-to-run-the-analyzer@@."
     )
     for result in sample:
         traced = analyzer.analyze_text(result.text, sid=result.sid, trace=True)
@@ -1629,6 +2021,14 @@ def build_report() -> str:
             continue
         subsection(f"{result.sid} --- {result.text}")
         w(verbatim(str(traced.parse.tree)))
+
+    shot_pair(
+        "tree-panel.png",
+        "derivation-panel.png",
+        "Left: the parse tree as the analyzer draws it. Right: the leftmost "
+        "derivation recovered from that same tree, so the two are guaranteed "
+        "to describe one parse rather than two independent accounts of it.",
+    )
 
     # ------------------------------------------ 17 discussion
     section("Comparison with a programming-language compiler")
@@ -1682,7 +2082,8 @@ def build_report() -> str:
         "program is making a claim about the program. An analyzer that rejects "
         "an utterance is making a claim about itself --- that its grammar does "
         "not reach that far. Keeping that distinction visible is why every "
-        "rejection in Section 20 is reported with a reason, and why lexical "
+        "rejection in @@test-results-accepted-and-rejected-sentences@@ is "
+        "reported with a reason, and why lexical "
         "failure is separated from syntactic failure throughout."
     )
 
@@ -1853,7 +2254,10 @@ def build_report() -> str:
         "python -m yca freq            # frequency, variation, code-mixing\n"
         "python -m yca show S01 --trace   # full detail for one statement\n"
         "python -m yca parse \"Chef, drop me for Obili.\" --trace\n"
+        "python -m yca fix \"Chef, drapp me for quartierla.\"\n"
         "python -m yca repl            # interactive; type a statement\n"
+        "python -m yca gui             # desktop application\n"
+        "python -m yca web             # browser front end on localhost\n"
         "python -m yca report          # regenerate this document\n"
         "\n"
         "python -m unittest discover -s tests -v   # unit tests"
@@ -1862,6 +2266,28 @@ def build_report() -> str:
         "To use your own field data, edit src/yca/corpus.py, replace the "
         "statements, set the provenance to FIELD, and regenerate. Every table "
         "in this report is computed from that file."
+    )
+
+    subsection("The three front ends")
+    para(
+        "The same analyzer is reachable three ways. The command line is the "
+        "one used to generate this report. The desktop application and the "
+        "browser front end exist because a parse trace and a parse tree are "
+        "much easier to read when they can be opened side by side than when "
+        "they scroll past in a terminal. All three construct the same "
+        "Analyzer over the same specification and grammar, so they cannot "
+        "disagree about a verdict, and all three expose the correction "
+        "engine of @@error-reporting-and-correction@@ --- as the Grammar tab "
+        "in the two windowed front ends, and as the fix subcommand on the "
+        "command line."
+    )
+    shot(
+        "web-deployed.png",
+        "The browser front end running over HTTPS on a public server. The "
+        "certificate is issued by Let's Encrypt and renews automatically; "
+        "the analyzer itself is the same code shown in the other figures.",
+        width=0.72,
+        ratio=RATIO_WINDOW,
     )
 
     subsection("Compiling this report")
@@ -1940,7 +2366,7 @@ def build_report() -> str:
         "languages, runs to several hundred entries and is better read in its "
         "source form, in src/yca/lexspec.py, or printed with the spec "
         "command. Every entry actually attested in the corpus already appears "
-        "with its gloss in Section 9."
+        "with its gloss in @@token-tables-statement-by-statement@@."
     )
 
     grouped: dict[str, list[str]] = {}
@@ -1948,15 +2374,32 @@ def build_report() -> str:
         grouped.setdefault(str(ttype), []).append(lexeme)
     for lexeme, (ttype, _lang, _slang, _gloss) in PHRASES.items():
         grouped.setdefault(str(ttype), []).append(lexeme)
+
+    # The open classes run to hundreds of entries and would add several
+    # pages of word list to a report the brief caps at 30. Each type is
+    # therefore shown up to a limit, with the remainder counted rather than
+    # printed; the full list is in the source and from the spec command.
+    LIMIT = 14
+
+    def entry_list(ttype: str) -> str:
+        items = sorted(grouped[ttype])
+        if len(items) <= LIMIT:
+            return esc(", ".join(items))
+        shown = ", ".join(items[:LIMIT])
+        rest = len(items) - LIMIT
+        return (esc(shown) + r", \textit{\ldots{} and " + str(rest)
+                + r" more}")
+
     w(longtable(
         "L{0.09} L{0.06} L{0.67}",
         ["Token", "Count", "Entries"],
         [
-            (ttype, str(len(grouped[ttype])), ", ".join(sorted(grouped[ttype])))
+            (esc(ttype), str(len(grouped[ttype])), entry_list(ttype))
             for ttype in sorted(grouped)
         ],
         caption="The declared vocabulary, by token type.",
         size=r"\scriptsize",
+        escape=False,
     ))
 
     w(r"\end{document}")

@@ -94,9 +94,16 @@ class TestTokenTable(unittest.TestCase):
         self.assertEqual(len(token_table(result)), len(result.lex.tokens))
 
     def test_rows_are_fully_populated(self):
+        """Index, lexeme, token type and matching rule, for every token.
+
+        Language, slang and gloss are properties of the lexical item rather
+        than of the occurrence, so they are tabulated once each by
+        ``distinct_token_inventory`` instead of being repeated here.
+        """
         result = Analyzer().analyze_text("Chef, drop me.")
         for row in token_table(result):
-            self.assertEqual(len(row), 7)
+            self.assertEqual(len(row), 4)
+            self.assertTrue(all(cell != "" for cell in row))
 
 
 class TestReportGeneration(unittest.TestCase):

@@ -40,13 +40,6 @@ function reveal() {
   setTimeout(() => { splash.style.display = "none"; positionInk(); }, 750);
 }
 
-function reveal() {
-  const splash = $("splash");
-  splash.classList.add("gone");
-  $("app").classList.add("shown");
-  setTimeout(() => { splash.style.display = "none"; positionInk(); }, 700);
-}
-
 /* ====================================================================
    Boot
    ==================================================================== */
@@ -148,6 +141,7 @@ async function analyze() {
     renderTree(data);
     renderTrace(data);
     renderDerivation(data);
+    renderCorrections(data);
   } catch (err) {
     setVerdict(false, "Request failed", String(err));
   } finally {
@@ -308,6 +302,125 @@ function renderDerivation(d) {
     return;
   }
   d.derivation.forEach((form) => list.appendChild(el("li", null, form)));
+}
+
+/* --------------------------------------------------------------------
+   Grammar check
+
+   The server decides what is wrong and what to propose; this function only
+   lays the answer out.  The one piece of behaviour here is the Apply button,
+   which drops the proposal into the entry box and re-analyzes, so a claim the
+   server made can be checked by the user in one click.
+   -------------------------------------------------------------------- */
+
+function renderCorrections(d) {
+  const host = $("fix");
+  const dot = $("fix-dot");
+  host.innerHTML = "";
+
+  const c = d.corrections;
+  if (!c) { dot.className = "tab-dot"; return; }
+
+  dot.className = "tab-dot" + (c.kind === "none" ? "" : " on");
+
+  const head = el("div", "fix-head " + (c.kind === "none" ? "ok" : "bad"));
+  head.appendChild(el("span", "fix-mark", c.kind === "none" ? "\u2713" : "\u2691"));
+  head.appendChild(el("p", null, c.headline));
+  host.appendChild(head);
+
+  if (c.kind === "none") return;
+
+  c.suggestions.forEach((s) => host.appendChild(suggestionCard(s)));
+
+  if (c.hint) host.appendChild(hintCard(c.hint));
+
+  if (c.proposal) host.appendChild(proposalCard(c));
+}
+
+function suggestionCard(s) {
+  const card = el("div", "fix-card");
+
+  const top = el("div", "fix-top");
+  top.appendChild(el("code", "fix-lex", s.lexeme));
+  top.appendChild(el("span", "fix-where", `line ${s.line}, col ${s.column}`));
+  if (s.confident || s.split) top.appendChild(el("span", "fix-tag", "fixable"));
+  card.appendChild(top);
+
+  card.appendChild(el("p", "fix-advice", s.advice));
+
+  if (!s.candidates.length) return card;
+
+  const list = el("div", "cand-list");
+  s.candidates.forEach((cand) => {
+    const row = el("div", "cand");
+
+    const bar = el("span", "cand-bar");
+    const fill = el("span", "cand-fill");
+    // The width is the score, so the ranking is legible without reading it.
+    fill.style.width = Math.round(cand.score * 100) + "%";
+    bar.appendChild(fill);
+
+    row.appendChild(el("code", "cand-form", cand.form));
+    row.appendChild(el("span", "badge t-" + cand.type, cand.type));
+    row.appendChild(bar);
+    row.appendChild(el("span", "cand-score", cand.score.toFixed(2)));
+    row.appendChild(el("span", "cand-why", cand.reason));
+    if (cand.gloss) row.appendChild(el("span", "cand-gloss", cand.gloss));
+
+    row.title = "Click to put this spelling into the entry box";
+    row.onclick = () => {
+      $("entry").value = $("entry").value.replace(s.lexeme, cand.form);
+      analyze();
+    };
+    list.appendChild(row);
+  });
+  card.appendChild(list);
+  return card;
+}
+
+function hintCard(h) {
+  const card = el("div", "fix-card");
+
+  const top = el("div", "fix-top");
+  if (h.atLexeme) {
+    top.appendChild(el("code", "fix-lex", h.atLexeme));
+    top.appendChild(el("span", "fix-where", `line ${h.line}, col ${h.column}`));
+  }
+  top.appendChild(el("span", "fix-tag warn", "word order"));
+  card.appendChild(top);
+
+  card.appendChild(el("p", "fix-advice", h.advice));
+
+  if (h.expected.length) {
+    const list = el("div", "cand-list");
+    h.expected.forEach((e) => {
+      const row = el("div", "cand static");
+      row.appendChild(el("span", "badge t-" + e.terminal, e.terminal));
+      row.appendChild(el("span", "cand-why",
+        e.examples.length ? "for example: " + e.examples.join(", ")
+                          : "produced by a regular-expression rule"));
+      list.appendChild(row);
+    });
+    card.appendChild(list);
+  }
+  return card;
+}
+
+function proposalCard(c) {
+  const ok = c.proposalAccepted === true;
+  const card = el("div", "fix-card proposal " + (ok ? "ok" : "bad"));
+
+  const top = el("div", "fix-top");
+  top.appendChild(el("span", "fix-tag", "proposal"));
+  top.appendChild(el("span", "fix-where", c.proposalNote));
+  card.appendChild(top);
+
+  card.appendChild(el("p", "fix-proposal", c.proposal));
+
+  const apply = el("button", "chip apply", "Use this statement");
+  apply.onclick = () => { $("entry").value = c.proposal; analyze(); };
+  card.appendChild(apply);
+  return card;
 }
 
 function renderSets() {

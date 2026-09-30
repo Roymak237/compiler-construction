@@ -16,6 +16,19 @@ venv/
 *.fdb_latexmk
 *.synctex.gz
 
+# Beamer writes two more navigation files per run, on the same footing as
+# the .aux and .toc above.
+*.nav
+*.snm
+*.vrb
+
+# Scratch: throwaway diagnostic scripts and captured command output. These
+# are written while investigating something and are never part of the work.
+scratch_*.py
+gen.txt
+t.txt
+build/
+
 # Editor / OS
 .vscode/
 .idea/

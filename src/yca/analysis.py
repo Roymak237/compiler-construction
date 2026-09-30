@@ -161,21 +161,18 @@ def analyze_corpus(statements: list[Statement]) -> CorpusReport:
 
 
 def token_table(result: StatementResult) -> list[tuple[str, ...]]:
-    """Rows for the per-statement token table printed in the report."""
-    rows: list[tuple[str, ...]] = []
-    for i, token in enumerate(result.lex.tokens, 1):
-        rows.append(
-            (
-                str(i),
-                token.lexeme,
-                str(token.type),
-                "/".join(str(l) for l in token.languages),
-                "yes" if token.is_slang else "",
-                token.rule,
-                token.gloss,
-            )
-        )
-    return rows
+    """Rows for the per-statement token table printed in the report.
+
+    Only the columns that vary with position are included. A token's
+    language, slang flag and gloss are properties of the lexical item
+    rather than of the occurrence, so repeating them for every occurrence
+    would add several pages of duplication; they are tabulated once each
+    by :func:`distinct_token_inventory` instead.
+    """
+    return [
+        (str(i), token.lexeme, str(token.type), token.rule)
+        for i, token in enumerate(result.lex.tokens, 1)
+    ]
 
 
 def distinct_token_inventory(results: list[StatementResult]) -> list[Token]:

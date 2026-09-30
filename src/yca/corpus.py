@@ -35,6 +35,7 @@ GROUP: list[Member] = [
     Member("Fru Chi Ehud Neba", "ICTU20241812"),
     Member("Daniel Victor", "ICTU20241332"),
     Member("Tchelibo Ayolo Sherrylle Claire", "ICTU20241316"),
+    Member("Kefeyin Hariette Sela", "ICTU20241471"),
 ]
 
 #: Course and institution, also printed on the title page.
